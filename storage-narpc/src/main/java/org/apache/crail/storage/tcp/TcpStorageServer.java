@@ -47,7 +47,7 @@ import com.ibm.narpc.NaRPCService;
 
 public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<TcpStorageRequest, TcpStorageResponse> {
 	private static final Logger LOG = CrailUtils.getLogger();
-	
+
 	private NaRPCServerGroup<TcpStorageRequest, TcpStorageResponse> serverGroup;
 	private NaRPCServerEndpoint<TcpStorageRequest, TcpStorageResponse> serverEndpoint;
 	private InetSocketAddress address;
@@ -56,12 +56,12 @@ public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<T
 	private long keys;
 	private ConcurrentHashMap<Integer, ByteBuffer> dataBuffers;
 	private String dataDirPath;
-	
+
 	@Override
 	public void init(CrailConfiguration conf, String[] args) throws Exception {
 		TcpStorageConstants.init(conf, args);
-		
-		this.serverGroup = new NaRPCServerGroup<TcpStorageRequest, TcpStorageResponse>(this, TcpStorageConstants.STORAGE_TCP_QUEUE_DEPTH, (int) CrailConstants.BLOCK_SIZE*2, false, TcpStorageConstants.STORAGE_TCP_CORES);
+
+		this.serverGroup = new NaRPCServerGroup<TcpStorageRequest, TcpStorageResponse>(this, TcpStorageConstants.STORAGE_TCP_QUEUE_DEPTH, (int) CrailConstants.BLOCK_SIZE*2, TcpStorageConstants.STORAGE_TCP_NODELAY, TcpStorageConstants.STORAGE_TCP_CORES);
 		this.serverEndpoint = serverGroup.createServerEndpoint();
 		this.address = getDataNodeAddress();
 		serverEndpoint.bind(address);
@@ -89,7 +89,7 @@ public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<T
 			ByteBuffer buffer = dataChannel.map(MapMode.READ_WRITE, 0, TcpStorageConstants.STORAGE_TCP_ALLOCATION_SIZE);
 			dataBuffers.put(fileId, buffer);
 			dataFile.close();
-			dataChannel.close();			
+			dataChannel.close();
 			long address = CrailUtils.getAddress(buffer);
 			resource = StorageResource.createResource(address, buffer.capacity(), fileId);
 //			LOG.info("allocating resource, key " + resource.getKey() + ", address " + resource.getAddress() + ", length " + resource.getLength());
@@ -183,12 +183,12 @@ public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<T
 		for (File child : dataDir.listFiles()) {
 			child.delete();
 		}
-	}	
-	
+	}
+
 	public static InetSocketAddress getDataNodeAddress() throws IOException {
 		String ifname = TcpStorageConstants.STORAGE_TCP_INTERFACE;
 		int port = TcpStorageConstants.STORAGE_TCP_PORT;
-		
+
 		NetworkInterface netif = NetworkInterface.getByName(ifname);
 		if (netif == null){
 			return null;
@@ -206,13 +206,13 @@ public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<T
 				//TODO: what to do with interface with multiple IP addresses?
 				addr = _addr;
 			}
-		}		
+		}
 		InetSocketAddress inetAddr = new InetSocketAddress(addr, port);
 		return inetAddr;
-	}	
-	
+	}
+
 	public static String getDatanodeDirectory(InetSocketAddress inetAddress){
 		String address = inetAddress.getAddress().toString();
 		return TcpStorageConstants.STORAGE_TCP_DATA_PATH + address + "-"  + inetAddress.getPort();
-	}	
+	}
 }

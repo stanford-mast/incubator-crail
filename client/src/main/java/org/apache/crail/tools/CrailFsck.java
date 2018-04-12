@@ -23,6 +23,7 @@ import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.StringTokenizer;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.cli.CommandLine;
@@ -94,7 +95,9 @@ public class CrailFsck {
 	public void namenodeDump()  throws Exception {
 		CrailConfiguration conf = new CrailConfiguration();
 		CoreDataStore fs = new CoreDataStore(conf);
-		fs.dumpNameNode();
+		for (int i = 0; i < CrailUtils.getNameNodeList().size(); i++) {
+			fs.dumpNameNode();
+		}
 		fs.close();
 	}
 
