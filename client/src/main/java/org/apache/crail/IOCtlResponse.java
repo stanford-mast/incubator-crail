@@ -11,6 +11,28 @@ abstract public class IOCtlResponse {
     public abstract void update(ByteBuffer buffer) throws IOException;
     public abstract int getSize();
 
+    public static class IOCtlNopResp extends IOCtlResponse {
+        public static int CSIZE = 0;
+
+        public IOCtlNopResp(){
+        }
+
+        public int write(ByteBuffer buffer) throws IOException {
+            return IOCtlNopResp.CSIZE;
+        }
+
+        public void update(ByteBuffer buffer) throws IOException {
+        }
+
+        public int getSize(){
+            return IOCtlNopResp.CSIZE;
+        }
+
+        public String toString(){
+            return "IOCtlNopResp: Empty";
+        }
+    }
+
     public static class IOCtlDataNodeRemoveResp extends IOCtlResponse {
         public static int CSIZE = 0;
 
@@ -36,16 +58,16 @@ abstract public class IOCtlResponse {
     public static class GetClassStatResp extends IOCtlResponse {
         public static int CSIZE = 16;
         private long allBlocks;
-        private long consumedBlocks;
+        private long freeBlocks;
 
         public GetClassStatResp(){
             this.allBlocks = -1;
-            this.consumedBlocks = -1;
+            this.freeBlocks = -1;
         }
 
         public GetClassStatResp(long all, long consumed){
             this.allBlocks = all;
-            this.consumedBlocks = consumed;
+            this.freeBlocks = consumed;
         }
 
         public int write(ByteBuffer buffer) throws IOException {
@@ -54,7 +76,7 @@ abstract public class IOCtlResponse {
             }
             // write 2 longs
             buffer.putLong(this.allBlocks);
-            buffer.putLong(this.consumedBlocks);
+            buffer.putLong(this.freeBlocks);
             return GetClassStatResp.CSIZE;
         }
 
@@ -63,7 +85,7 @@ abstract public class IOCtlResponse {
                 throw new IOException("Read ByteBuffer is too small, remaining " + buffer.remaining() + " expected, " + getSize() + " bytes");
             }
             this.allBlocks = buffer.getLong();
-            this.consumedBlocks = buffer.getLong();
+            this.freeBlocks = buffer.getLong();
         }
 
         public int getSize(){
@@ -71,7 +93,7 @@ abstract public class IOCtlResponse {
         }
 
         public String toString(){
-            return "GetClassStatResp: all block: " + this.allBlocks + " consumed: " + this.consumedBlocks;
+            return "GetClassStatResp: all block: " + this.allBlocks + " free: " + this.freeBlocks;
         }
     }
 }

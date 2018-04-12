@@ -20,7 +20,6 @@
 package org.apache.crail.namenode;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.URI;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
@@ -424,7 +423,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		}
 		dnInfoNn.touch();
 		response.setServiceId(serviceId);
-		response.setFreeBlockCount(dnInfoNn.getBlockCount());
+		response.setFreeBlockCount(dnInfoNn.getFreeBlockCount());
 		
 		return RpcErrors.ERR_OK;
 	}	
@@ -602,7 +601,17 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 				return prepareDataNodeForRemoval(dn);
 
 			case IOCtlCommand.NN_GET_CLASS_STAT:
-				IOCtlResponse.GetClassStatResp stat = new IOCtlResponse.GetClassStatResp(8, 4);
+				IOCtlCommand.GetClassStatCommand cmd = (IOCtlCommand.GetClassStatCommand) request.getIOCtlCommand();
+				long totalBlocks = this.blockStore.getTotalBlocks(cmd.getStorageClass());
+				if(totalBlocks < 0 ){
+					//error, that means that the storage class is not valid
+					// this is already negative with the RPC error code, make it positive so that it indexes into
+					// the error message array
+					return (short) ( 0 - totalBlocks);
+				}
+				long freeBlocks = this.blockStore.getFreeBlocks(cmd.getStorageClass());
+				assert (freeBlocks >= 0);
+				IOCtlResponse.GetClassStatResp stat = new IOCtlResponse.GetClassStatResp(totalBlocks, freeBlocks);
 				response.setResponse(stat);
 				return RpcErrors.ERR_OK;
 

@@ -694,6 +694,9 @@ public class RpcResponseMessage {
 			this.opcode = buffer.get();
 			/* which type ? */
 			switch (this.opcode) {
+				case IOCtlCommand.NOP:
+					this.resp = new IOCtlResponse.IOCtlNopResp();
+					break;
 				case IOCtlCommand.DN_REMOVE:
 					this.resp = new IOCtlResponse.IOCtlDataNodeRemoveResp();
 					break;

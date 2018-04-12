@@ -56,11 +56,13 @@ public class DataNodeBlocks extends DataNodeInfo {
 	private void updateMaxCount(){
 		// we want to see what is the maximum block count we have seen with this
 		// node. Eventually that is the capacity we need to get back to.
+		// XXX: this logic does not work if data nodes can de-register capacities
 		if(freeBlocks.size() > this.maxBlockCount)
 			this.maxBlockCount = freeBlocks.size();
 	}
 	
 	public void addFreeBlock(NameNodeBlockInfo nnBlock) {
+		//TODO: checking here the returning value tells us if this is a new or old block.
 		regions.put(nnBlock.getRegion().getLba(), nnBlock.getRegion());
 		freeBlocks.add(nnBlock);
 		updateMaxCount();
@@ -83,8 +85,12 @@ public class DataNodeBlocks extends DataNodeInfo {
 		return  this.maxBlockCount == this.freeBlocks.size();
 	}
 	
-	public int getBlockCount() {
+	public int getFreeBlockCount() {
 		return freeBlocks.size();
+	}
+
+	public long getMaxBlockCount() {
+		return this.maxBlockCount;
 	}
 
 	public boolean regionExists(BlockInfo region) {

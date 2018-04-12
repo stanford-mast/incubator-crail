@@ -101,6 +101,10 @@ public abstract class IOCtlCommand {
             this.storageClass = buffer.getInt();
         }
 
+        public int getStorageClass(){
+            return this.storageClass;
+        }
+
         public int getSize(){ return GetClassStatCommand.CSIZE;}
 
         public String toString(){ return "GetClassStatCommand class: " + this.storageClass;}

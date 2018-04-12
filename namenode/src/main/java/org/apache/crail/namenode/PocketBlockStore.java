@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -27,6 +26,24 @@ public class PocketBlockStore {
         for (int i = 0; i < CrailConstants.STORAGE_CLASSES; i++) {
             this.storageClasses[i] = new PocketStorageClass(i);
         }
+    }
+
+    long getTotalBlocks(int storageClass) {
+        if(storageClass < this.storageClasses.length){
+            // within the index range
+            return this.storageClasses[storageClass].getTotalBlockCount();
+        }
+        // otherwise, treat it as an error
+        return 0 - RpcErrors.ERR_NO_SUCH_STORAGE_CLASS;
+    }
+
+    long getFreeBlocks(int storageClass) {
+        if(storageClass < this.storageClasses.length){
+            // within the index range
+            return this.storageClasses[storageClass].getTotalBlockCount();
+        }
+        // otherwise, treat it as an error
+        return 0 - RpcErrors.ERR_NO_SUCH_STORAGE_CLASS;
     }
 
     short removeDataNode(DataNodeInfo dn) throws Exception {
@@ -96,6 +113,14 @@ class PocketStorageClass {
         } else {
             this.blockSelection = new RandomBlockSelection();
         }
+    }
+
+    long getTotalBlockCount(){
+        return membership.getTotalBlocks();
+    }
+
+    long getFreeBlockCount(){
+        return membership.getFreeBlocks();
     }
 
     short addBlock(NameNodeBlockInfo block) throws Exception {
@@ -263,6 +288,28 @@ class PocketStorageClass {
             } finally {
                 lock.readLock().unlock();
             }
+        }
+
+        long getTotalBlocks(){
+            long total = 0;
+            lock.readLock().lock();
+            int size = this.indexToLong.size();
+            for(int i = 0; i < size; i++){
+                total+=this.membership.get(this.indexToLong.get(i)).getMaxBlockCount();
+            }
+            lock.readLock().unlock();
+            return total;
+        }
+
+        long getFreeBlocks(){
+            long free = 0;
+            lock.readLock().lock();
+            int size = this.indexToLong.size();
+            for(int i = 0; i < size; i++){
+                free+=this.membership.get(this.indexToLong.get(i)).getFreeBlockCount();
+            }
+            lock.readLock().unlock();
+            return free;
         }
     }
 }
