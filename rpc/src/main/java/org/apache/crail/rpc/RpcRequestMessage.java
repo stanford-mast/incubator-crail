@@ -19,6 +19,7 @@
 
 package org.apache.crail.rpc;
 
+import java.io.IOException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 
@@ -572,7 +573,79 @@ public class RpcRequestMessage {
 		public void update(ByteBuffer buffer) {
 			op = buffer.getInt();
 		}		
-	}	
-	
+	}
 
+	public static class IoctlNameNodeReq implements RpcProtocol.NameNodeRpcMessage {
+		private IOCtlCommand cmd;
+		private byte opcode;
+
+		public IoctlNameNodeReq(){
+			this.opcode = IOCtlCommand.NOP;
+			this.cmd = new IOCtlCommand.NoOpCommand();
+		}
+
+		public void setIoctlCommand(IOCtlCommand ops){
+			this.cmd = ops;
+			if (ops instanceof IOCtlCommand.RemoveDataNode) {
+				this.opcode = IOCtlCommand.DN_REMOVE;
+			} else if (ops instanceof IOCtlCommand.GetClassStatCommand) {
+				this.opcode = IOCtlCommand.NN_GET_CLASS_STAT;
+			}
+		}
+
+		public byte getOpcode() {
+			return this.opcode;
+		}
+
+		public int size() {
+			// we write one byte + command
+			return Byte.BYTES + this.cmd.getSize();
+		}
+
+		public short getType(){
+			return RpcProtocol.REQ_IOCTL_NAMENODE;
+		}
+
+		public int write(ByteBuffer buffer) throws IOException {
+			int size = size();
+			if(buffer.remaining() < size){
+				throw new IOException("Buffer.remaining " + buffer.remaining() + " is less than required " + size + " bytes");
+			}
+			buffer.put(opcode);
+			this.cmd.write(buffer);
+			return size;
+		}
+
+		private void checkCmdSize(int remaining) throws IOException {
+			if(this.cmd.getSize() > remaining)
+				throw new IOException("Buffer.remaining " + remaining + " is less than required " + this.cmd.getSize() + " bytes");
+		}
+
+		public void update(ByteBuffer buffer) throws IOException {
+			if(buffer.remaining() < Byte.BYTES){
+				throw new IOException("Cannot even read a byte of opcode from the passed ByteBuffer");
+			}
+			this.opcode = buffer.get();
+			/* which type ? */
+			switch (this.opcode) {
+				case IOCtlCommand.DN_REMOVE:
+					this.cmd = new IOCtlCommand.RemoveDataNode();
+					break;
+				case IOCtlCommand.NOP:
+					this.cmd = new IOCtlCommand.NoOpCommand();
+					break;
+				case IOCtlCommand.NN_GET_CLASS_STAT:
+					this.cmd = new IOCtlCommand.GetClassStatCommand();
+					break;
+				default:
+					throw new IOException("NYI: ioctl opcode " + this.opcode);
+			}
+			checkCmdSize(buffer.remaining());
+			this.cmd.update(buffer);
+		}
+
+		public IOCtlCommand getIOCtlCommand(){
+			return this.cmd;
+		}
+	}
 }

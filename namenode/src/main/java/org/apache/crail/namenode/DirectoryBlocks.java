@@ -71,7 +71,7 @@ public class DirectoryBlocks extends AbstractNode {
 	}
 
 	@Override
-	public void freeBlocks(BlockStore blockStore) throws Exception {
+	public void freeBlocks(PocketBlockStore blockStore) throws Exception {
 		Iterator<NameNodeBlockInfo> iter = blocks.values().iterator();
 		while (iter.hasNext()){
 			NameNodeBlockInfo blockInfo = iter.next();

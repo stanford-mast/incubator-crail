@@ -49,7 +49,7 @@ public abstract class AbstractNode extends FileInfo implements Delayed {
 	//get block at the given index, returns a valid block or null otherwise
 	public abstract NameNodeBlockInfo getBlock(int index) throws Exception;
 	//clear all the blocks (used by GC)
-	public abstract void freeBlocks(BlockStore blockStore) throws Exception;	
+	public abstract void freeBlocks(PocketBlockStore blockStore) throws Exception;
 	
 	public AbstractNode(long fd, int fileComponent, CrailNodeType type, int storageClass, int locationAffinity, boolean enumerable){
 		super(fd, type, enumerable);

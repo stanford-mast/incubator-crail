@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.crail.CrailNodeType;
+import org.apache.crail.RpcIoctl;
 import org.apache.crail.metadata.BlockInfo;
 import org.apache.crail.metadata.DataNodeInfo;
 import org.apache.crail.metadata.FileInfo;
@@ -136,6 +137,11 @@ public class RpcDispatcher implements RpcConnection {
 	@Override
 	public RpcFuture<RpcPing> pingNameNode() throws Exception {
 		return connections[0].pingNameNode();
+	}
+
+	@Override
+	public RpcFuture<RpcIoctl> ioctlNameNode(IOCtlCommand cmd) throws IOException {
+		throw new IOException();
 	}
 
 	@Override

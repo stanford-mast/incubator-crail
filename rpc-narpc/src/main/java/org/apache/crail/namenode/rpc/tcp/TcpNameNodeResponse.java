@@ -19,6 +19,7 @@
 
 package org.apache.crail.namenode.rpc.tcp;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import org.apache.crail.rpc.RpcNameNodeState;
@@ -44,7 +45,8 @@ public class TcpNameNodeResponse extends RpcResponseMessage implements RpcNameNo
 	private RpcResponseMessage.GetLocationRes getLocationRes;	
 	private RpcResponseMessage.GetDataNodeRes getDataNodeRes;
 	private RpcResponseMessage.PingNameNodeRes pingNameNodeRes;
-	
+	private RpcResponseMessage.IOCtlNameNodeRes ioCtlNameNodeRes;
+
 	public TcpNameNodeResponse() {
 		this.type = 0;
 		this.error = 0;
@@ -57,6 +59,7 @@ public class TcpNameNodeResponse extends RpcResponseMessage implements RpcNameNo
 		this.getLocationRes = new RpcResponseMessage.GetLocationRes();
 		this.getDataNodeRes = new RpcResponseMessage.GetDataNodeRes();
 		this.pingNameNodeRes = new RpcResponseMessage.PingNameNodeRes();
+		this.ioCtlNameNodeRes = new RpcResponseMessage.IOCtlNameNodeRes();
 	}
 	
 	public TcpNameNodeResponse(RpcResponseMessage.VoidRes message) {
@@ -103,6 +106,11 @@ public class TcpNameNodeResponse extends RpcResponseMessage implements RpcNameNo
 		this.type = message.getType();
 		this.pingNameNodeRes = message;
 	}
+
+	public TcpNameNodeResponse(RpcResponseMessage.IOCtlNameNodeRes message) {
+		this.type = message.getType();
+		this.ioCtlNameNodeRes = message;
+	}
 	
 	public void setType(short type) throws Exception {
 		this.type = type;
@@ -112,7 +120,7 @@ public class TcpNameNodeResponse extends RpcResponseMessage implements RpcNameNo
 		return CSIZE;
 	}
 	
-	public int write(ByteBuffer buffer){
+	public int write(ByteBuffer buffer) throws IOException {
 		buffer.putShort(type);
 		buffer.putShort(error);
 		
@@ -144,16 +152,19 @@ public class TcpNameNodeResponse extends RpcResponseMessage implements RpcNameNo
 			break;			
 		case RpcProtocol.RES_PING_NAMENODE:
 			written += pingNameNodeRes.write(buffer);
-			break;			
+			break;
+		case RpcProtocol.RES_IOCTL_NAMENODE:
+			written += ioCtlNameNodeRes.write(buffer);
+			break;
 		}
 		
 		return written;
 	}
 	
-	public void update(ByteBuffer buffer){
+	public void update(ByteBuffer buffer) throws IOException{
 		this.type = buffer.getShort();
 		this.error = buffer.getShort();
-		
+
 		switch(type){
 		case RpcProtocol.RES_VOID:
 			voidRes.update(buffer);
@@ -190,7 +201,11 @@ public class TcpNameNodeResponse extends RpcResponseMessage implements RpcNameNo
 		case RpcProtocol.RES_PING_NAMENODE:
 			pingNameNodeRes.update(buffer);
 			pingNameNodeRes.setError(error);
-			break;		
+			break;
+		case RpcProtocol.RES_IOCTL_NAMENODE:
+			ioCtlNameNodeRes.update(buffer);
+			ioCtlNameNodeRes.setError(error);
+			break;
 		}
 	}
 	
@@ -240,5 +255,9 @@ public class TcpNameNodeResponse extends RpcResponseMessage implements RpcNameNo
 	
 	public RpcResponseMessage.PingNameNodeRes pingNameNode(){
 		return this.pingNameNodeRes;
+	}
+
+	public RpcResponseMessage.IOCtlNameNodeRes ioCtlNameNode(){
+		return this.ioCtlNameNodeRes;
 	}
 }

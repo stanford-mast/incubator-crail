@@ -46,6 +46,7 @@ public class TcpNameNodeRequest extends RpcRequestMessage implements NaRPCMessag
 	private RpcRequestMessage.GetDataNodeReq getDataNodeReq;
 	private RpcRequestMessage.DumpNameNodeReq dumpNameNodeReq;
 	private RpcRequestMessage.PingNameNodeReq pingNameNodeReq;
+	private RpcRequestMessage.IoctlNameNodeReq ioctlNameNodeReq;
 
 	public TcpNameNodeRequest() {
 		this.cmd = 0;
@@ -61,6 +62,7 @@ public class TcpNameNodeRequest extends RpcRequestMessage implements NaRPCMessag
 		this.dumpNameNodeReq = new RpcRequestMessage.DumpNameNodeReq();
 		this.pingNameNodeReq = new RpcRequestMessage.PingNameNodeReq();
 		this.getDataNodeReq = new RpcRequestMessage.GetDataNodeReq();
+		this.ioctlNameNodeReq = new IoctlNameNodeReq();
 	}	
 	
 	public TcpNameNodeRequest(RpcRequestMessage.CreateFileReq message) {
@@ -116,6 +118,11 @@ public class TcpNameNodeRequest extends RpcRequestMessage implements NaRPCMessag
 		this.type = message.getType();
 		this.pingNameNodeReq = message;
 	}
+
+	public TcpNameNodeRequest(RpcRequestMessage.IoctlNameNodeReq message) {
+		this.type = message.getType();
+		this.ioctlNameNodeReq = message;
+	}
 	
 	public void setCommand(short command) {
 		this.cmd = command;
@@ -164,8 +171,11 @@ public class TcpNameNodeRequest extends RpcRequestMessage implements NaRPCMessag
 		case RpcProtocol.REQ_PING_NAMENODE:
 			written += pingNameNodeReq.write(buffer);
 			break;
+		case RpcProtocol.REQ_IOCTL_NAMENODE:
+			written += ioctlNameNodeReq.write(buffer);
+			break;
+		default: throw new IOException("Illegal type: " + type);
 		}
-		
 		return written;
 	}
 	
@@ -207,6 +217,10 @@ public class TcpNameNodeRequest extends RpcRequestMessage implements NaRPCMessag
 		case RpcProtocol.REQ_PING_NAMENODE:
 			pingNameNodeReq.update(buffer);
 			break;
+		case RpcProtocol.REQ_IOCTL_NAMENODE:
+			ioctlNameNodeReq.update(buffer);
+			break;
+		default: throw new IOException("Illegal type: " + type);
 		}
 	}
 
@@ -260,5 +274,9 @@ public class TcpNameNodeRequest extends RpcRequestMessage implements NaRPCMessag
 	
 	public RpcRequestMessage.PingNameNodeReq pingNameNode(){
 		return this.pingNameNodeReq;
+	}
+
+	public RpcRequestMessage.IoctlNameNodeReq ioctlNameNode(){
+		return this.ioctlNameNodeReq;
 	}
 }

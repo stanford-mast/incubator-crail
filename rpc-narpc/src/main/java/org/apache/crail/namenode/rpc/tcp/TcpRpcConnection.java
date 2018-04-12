@@ -23,6 +23,7 @@ import com.ibm.narpc.NaRPCEndpoint;
 import com.ibm.narpc.NaRPCFuture;
 
 import org.apache.crail.CrailNodeType;
+import org.apache.crail.RpcIoctl;
 import org.apache.crail.metadata.BlockInfo;
 import org.apache.crail.metadata.DataNodeInfo;
 import org.apache.crail.metadata.FileInfo;
@@ -52,6 +53,7 @@ public class TcpRpcConnection implements RpcConnection {
 	}
 
 	public void close() throws IOException {
+		LOG.info("Closing the namenode side client connection: " + this.endpoint.address());
 		this.endpoint.close();
 	}
 
@@ -185,4 +187,16 @@ public class TcpRpcConnection implements RpcConnection {
 		return new TcpFuture<RpcPing>(future, resp);
 	}
 
+	@Override
+	public RpcFuture<RpcIoctl> ioctlNameNode(IOCtlCommand cmd) throws IOException {
+		RpcRequestMessage.IoctlNameNodeReq req = new RpcRequestMessage.IoctlNameNodeReq();
+		req.setIoctlCommand(cmd);
+		RpcResponseMessage.IOCtlNameNodeRes resp = new RpcResponseMessage.IOCtlNameNodeRes();
+
+		TcpNameNodeRequest request = new TcpNameNodeRequest(req);
+		TcpNameNodeResponse response = new TcpNameNodeResponse(resp);
+		request.setCommand(RpcProtocol.CMD_IOCTL_NAMENODE);
+		NaRPCFuture<TcpNameNodeRequest, TcpNameNodeResponse> future = endpoint.issueRequest(request, response);
+		return new TcpFuture<RpcIoctl>(future, resp);
+	}
 }

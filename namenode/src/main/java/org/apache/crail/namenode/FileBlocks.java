@@ -74,7 +74,7 @@ public class FileBlocks extends AbstractNode {
 	}
 
 	@Override
-	public void freeBlocks(BlockStore blockStore) throws Exception {
+	public void freeBlocks(PocketBlockStore blockStore) throws Exception {
 		readLock.lock();
 		try {
 			Iterator<NameNodeBlockInfo> iter = blocks.iterator();

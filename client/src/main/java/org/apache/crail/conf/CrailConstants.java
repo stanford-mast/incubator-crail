@@ -109,8 +109,11 @@ public class CrailConstants {
 	public static String NAMENODE_RPC_SERVICE = "org.apache.crail.namenode.NameNodeService";	
 	
 	public static final String NAMENODE_LOG_KEY = "crail.namenode.log";
-	public static String NAMENODE_LOG = "";		
-	
+	public static String NAMENODE_LOG = "";
+
+	public static final String NAMENODE_REPLAY_REGION_KEY = "crail.namenode.replayregion";
+	public static boolean NAMENODE_REPLAY_REGION = false;
+
 	//storage interface
 	public static final String STORAGE_TYPES_KEY = "crail.storage.types";
 	public static String STORAGE_TYPES = "org.apache.crail.storage.tcp.TcpStorageTier";		
@@ -201,7 +204,10 @@ public class CrailConstants {
 		}
 		if (conf.get(NAMENODE_LOG_KEY) != null) {
 			NAMENODE_LOG = conf.get(NAMENODE_LOG_KEY);
-		}		
+		}
+		if (conf.get(CrailConstants.NAMENODE_REPLAY_REGION_KEY) != null) {
+			NAMENODE_REPLAY_REGION = conf.getBoolean(CrailConstants.NAMENODE_REPLAY_REGION_KEY, false);
+		}
 		
 		//storage interface
 		if (conf.get(STORAGE_TYPES_KEY) != null) {
@@ -246,6 +252,7 @@ public class CrailConstants {
 		LOG.info(NAMENODE_FILEBLOCKS_KEY + " " + NAMENODE_FILEBLOCKS);
 		LOG.info(NAMENODE_RPC_TYPE_KEY + " " + NAMENODE_RPC_TYPE);
 		LOG.info(NAMENODE_LOG_KEY + " " + NAMENODE_LOG);
+		LOG.info(NAMENODE_REPLAY_REGION_KEY + " " + NAMENODE_REPLAY_REGION);
 		LOG.info(STORAGE_TYPES_KEY + " " + STORAGE_TYPES);
 		LOG.info(STORAGE_CLASSES_KEY + " " + STORAGE_CLASSES);
 		LOG.info(STORAGE_ROOTCLASS_KEY + " " + STORAGE_ROOTCLASS);

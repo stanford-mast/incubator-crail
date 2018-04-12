@@ -27,19 +27,16 @@ import java.util.concurrent.DelayQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.crail.CrailNodeType;
+import org.apache.crail.IOCtlResponse;
 import org.apache.crail.conf.CrailConstants;
 import org.apache.crail.metadata.BlockInfo;
 import org.apache.crail.metadata.DataNodeInfo;
 import org.apache.crail.metadata.FileInfo;
 import org.apache.crail.metadata.FileName;
-import org.apache.crail.rpc.RpcErrors;
-import org.apache.crail.rpc.RpcNameNodeService;
-import org.apache.crail.rpc.RpcNameNodeState;
-import org.apache.crail.rpc.RpcProtocol;
-import org.apache.crail.rpc.RpcRequestMessage;
-import org.apache.crail.rpc.RpcResponseMessage;
+import org.apache.crail.rpc.*;
 import org.apache.crail.utils.CrailUtils;
 import org.slf4j.Logger;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 public class NameNodeService implements RpcNameNodeService, Sequencer {
 	private static final Logger LOG = CrailUtils.getLogger();
@@ -48,7 +45,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 	private long serviceId;
 	private long serviceSize;
 	private AtomicLong sequenceId;
-	private BlockStore blockStore;
+	private PocketBlockStore blockStore;
 	private DelayQueue<AbstractNode> deleteQueue;
 	private FileStore fileTree;
 	private ConcurrentHashMap<Long, AbstractNode> fileTable;	
@@ -61,7 +58,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		this.serviceId = Long.parseLong(tokenizer.nextToken().substring(3));
 		this.serviceSize = Long.parseLong(tokenizer.nextToken().substring(5));
 		this.sequenceId = new AtomicLong(serviceId);
-		this.blockStore = new BlockStore();
+		this.blockStore = new PocketBlockStore();
 		this.deleteQueue = new DelayQueue<AbstractNode>();
 		this.fileTree = new FileStore(this);
 		this.fileTable = new ConcurrentHashMap<Long, AbstractNode>();
@@ -403,20 +400,30 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		//check protocol
 		if (!RpcProtocol.verifyProtocol(RpcProtocol.CMD_GET_DATANODE, request, response)){
 			return RpcErrors.ERR_PROTOCOL_MISMATCH;
-		}			
-		
+		}
 		//get params
 		DataNodeInfo dnInfo = request.getInfo();
-		
 		//rpc
 		DataNodeBlocks dnInfoNn = blockStore.getDataNode(dnInfo);
 		if (dnInfoNn == null){
+			System.err.println(" Datanode no longer registered ");
 			return RpcErrors.ERR_DATANODE_NOT_REGISTERED;
 		}
-		
+		// here is our control hack
+		if(dnInfoNn.isScheduleForRemoval()){
+			// we now check if we have a possibility to eject it now
+			if(dnInfoNn.safeForRemoval()){
+				// now we eject it from everywhere
+				blockStore.removeDataNode(dnInfo);
+				response.setServiceId(serviceId);
+				// we are abusing the free block count
+				response.setFreeBlockCount(RpcErrors.ERR_DN_IOCTL_STOP);
+				return RpcErrors.ERR_OK;
+			} // otherwise we have to wait until all block are not free
+		}
 		dnInfoNn.touch();
 		response.setServiceId(serviceId);
-		response.setFreeBlockCount(dnInfoNn.getBlockCount());
+		response.setFreeBlockCount(dnInfoNn.getFreeBlockCount());
 		
 		return RpcErrors.ERR_OK;
 	}	
@@ -430,11 +437,15 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		
 		//get params
 		BlockInfo region = new BlockInfo();
+		// atr: the call from the datanode to here to set block is more like SET_REGION, we should rename it.
+		// TODO: make a new type SET_REGION
 		region.setBlockInfo(request.getBlockInfo());
+
+		System.err.println(" ### " + region.getDnInfo().toString());
 		
 		short error = RpcErrors.ERR_OK;
-		if (blockStore.regionExists(region)){
-			error = blockStore.updateRegion(region);
+		if (CrailConstants.NAMENODE_REPLAY_REGION){
+			throw new Exception("NYI: update region on the pocket block store.");
 		} else {
 			//rpc
 			int realBlocks = (int) (((long) region.getLength()) / CrailConstants.BLOCK_SIZE) ;
@@ -571,9 +582,51 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		
 		return RpcErrors.ERR_OK;
 	}
-	
-	
+
+	@Override
+	public short ioctl(RpcRequestMessage.IoctlNameNodeReq request,
+					   RpcResponseMessage.IOCtlNameNodeRes response, RpcNameNodeState errorState) throws Exception {
+		if (!RpcProtocol.verifyProtocol(RpcProtocol.CMD_IOCTL_NAMENODE, request, response)){
+			return RpcErrors.ERR_PROTOCOL_MISMATCH;
+		}
+		byte opcode = request.getOpcode();
+		switch (opcode) {
+			case IOCtlCommand.NOP:
+				return RpcErrors.ERR_OK;
+
+			case IOCtlCommand.DN_REMOVE :
+				IOCtlCommand.RemoveDataNode dn = (IOCtlCommand.RemoveDataNode) request.getIOCtlCommand();
+				IOCtlResponse.IOCtlDataNodeRemoveResp resp = new IOCtlResponse.IOCtlDataNodeRemoveResp();
+				response.setResponse(resp);
+				return prepareDataNodeForRemoval(dn);
+
+			case IOCtlCommand.NN_GET_CLASS_STAT:
+				IOCtlCommand.GetClassStatCommand cmd = (IOCtlCommand.GetClassStatCommand) request.getIOCtlCommand();
+				long totalBlocks = this.blockStore.getTotalBlocks(cmd.getStorageClass());
+				if(totalBlocks < 0 ){
+					//error, that means that the storage class is not valid
+					// this is already negative with the RPC error code, make it positive so that it indexes into
+					// the error message array
+					return (short) ( 0 - totalBlocks);
+				}
+				long freeBlocks = this.blockStore.getFreeBlocks(cmd.getStorageClass());
+				assert (freeBlocks >= 0);
+				IOCtlResponse.GetClassStatResp stat = new IOCtlResponse.GetClassStatResp(totalBlocks, freeBlocks);
+				response.setResponse(stat);
+				return RpcErrors.ERR_OK;
+
+			default: throw new NotImplementedException();
+		}
+	}
+
+
 	//--------------- helper functions
+
+	private short prepareDataNodeForRemoval(IOCtlCommand.RemoveDataNode dn) throws Exception {
+		LOG.info("IOCTL: removing data node: " + dn);
+		DataNodeInfo dnInfo = new DataNodeInfo(0, 0, 0, dn.getIPAddress().getAddress(), dn.port());
+		return blockStore.prepareDataNodeForRemoval(dnInfo);
+	}
 	
 	void appendToDeleteQueue(AbstractNode fileInfo) throws Exception {
 		if (fileInfo != null) {
