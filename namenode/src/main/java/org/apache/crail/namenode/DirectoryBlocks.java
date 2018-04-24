@@ -48,6 +48,8 @@ public class DirectoryBlocks extends AbstractNode {
 		if (child.isEnumerable()) {
 			child.setDirOffset(dirOffsetCounter.getAndAdd(CrailConstants.DIRECTORY_RECORD));
 		}
+		// set the weight map
+		child.setWeightMapIndex(getWeightMapIndex());
 		return old;
 	}	
 	

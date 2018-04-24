@@ -31,7 +31,8 @@ public abstract class AbstractNode extends FileInfo implements Delayed {
 	private long delay;
 	private int storageClass;
 	private int locationClass;
-	
+	private long weightMapIndex;
+
 	//children manipulation
 	//adds or replaces a child, returns previous value or null if there was no mapping
 	public abstract AbstractNode putChild(AbstractNode child) throws Exception;
@@ -50,17 +51,26 @@ public abstract class AbstractNode extends FileInfo implements Delayed {
 	public abstract NameNodeBlockInfo getBlock(int index) throws Exception;
 	//clear all the blocks (used by GC)
 	public abstract void freeBlocks(PocketBlockStore blockStore) throws Exception;
-	
+
 	public AbstractNode(long fd, int fileComponent, CrailNodeType type, int storageClass, int locationAffinity, boolean enumerable){
 		super(fd, type, enumerable);
-		
+		_initialize(fd, fileComponent, type, storageClass, locationAffinity, enumerable, 0);
+	}
+
+	public AbstractNode(long fd, int fileComponent, CrailNodeType type, int storageClass, int locationAffinity, boolean enumerable, long weightMapIndex){
+		super(fd, type, enumerable);
+		_initialize(fd, fileComponent, type, storageClass, locationAffinity, enumerable, weightMapIndex);
+	}
+
+	private void _initialize(long fd, int fileComponent, CrailNodeType type, int storageClass, int locationAffinity, boolean enumerable, long weightMapIndex){
 		this.fileComponent = fileComponent;
 		this.storageClass = storageClass;
 		this.locationClass = locationAffinity;
+		this.weightMapIndex = weightMapIndex;
 		this.delay = System.currentTimeMillis();
 		this.setModificationTime(System.currentTimeMillis());
 	}
-	
+
 	void rename(int newFileComponent) throws Exception {
 		this.fileComponent = newFileComponent;
 	}	
@@ -105,5 +115,13 @@ public abstract class AbstractNode extends FileInfo implements Delayed {
 
 	public int getLocationClass() {
 		return locationClass;
+	}
+
+	public long getWeightMapIndex(){
+		return this.weightMapIndex;
+	}
+
+	public void setWeightMapIndex(long mapIndex){
+		this.weightMapIndex = mapIndex;
 	}
 }

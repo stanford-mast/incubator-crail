@@ -139,6 +139,10 @@ public abstract class IOCtlCommand {
             return FileName.CSIZE;
         }
 
+        public FileName getDirLocation(){
+            return this.dirLocation;
+        }
+
         public String toString(){ return "AttachWeigthMaskCommand";}
     }
 

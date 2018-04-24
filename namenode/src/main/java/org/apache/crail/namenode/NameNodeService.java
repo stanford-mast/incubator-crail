@@ -27,7 +27,9 @@ import java.util.concurrent.DelayQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.crail.CrailNodeType;
+import org.apache.crail.DataNodeWeight;
 import org.apache.crail.IOCtlResponse;
+import org.apache.crail.WeightMask;
 import org.apache.crail.conf.CrailConstants;
 import org.apache.crail.metadata.BlockInfo;
 import org.apache.crail.metadata.DataNodeInfo;
@@ -48,7 +50,8 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 	private PocketBlockStore blockStore;
 	private DelayQueue<AbstractNode> deleteQueue;
 	private FileStore fileTree;
-	private ConcurrentHashMap<Long, AbstractNode> fileTable;	
+	private ConcurrentHashMap<Long, AbstractNode> fileTable;
+	private ConcurrentHashMap<Long, WeightMask> weightMask;
 	private GCServer gcServer;
 	
 	public NameNodeService() throws IOException {
@@ -62,6 +65,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		this.deleteQueue = new DelayQueue<AbstractNode>();
 		this.fileTree = new FileStore(this);
 		this.fileTable = new ConcurrentHashMap<Long, AbstractNode>();
+		this.weightMask = new ConcurrentHashMap<>();
 		this.gcServer = new GCServer(this, deleteQueue);
 		
 		AbstractNode root = fileTree.getRoot();
@@ -84,7 +88,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		//get params
 		FileName fileHash = request.getFileName();
 		CrailNodeType type = request.getFileType();
-		boolean writeable = type.isDirectory() ? false : true; 
+		boolean writeable = type.isDirectory() ? false : true;
 		int storageClass = request.getStorageClass();
 		int locationClass = request.getLocationClass();
 		boolean enumerable = request.isEnumerable();
@@ -124,7 +128,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		}
 		fileTable.put(fileInfo.getFd(), fileInfo);
 		
-		NameNodeBlockInfo fileBlock = blockStore.getBlock(fileInfo.getStorageClass(), fileInfo.getLocationClass());
+		NameNodeBlockInfo fileBlock = blockStore.getBlock(fileInfo.getStorageClass(), fileInfo.getLocationClass(),_lookupMask(fileInfo));
 		if (fileBlock == null){
 			return RpcErrors.ERR_NO_FREE_BLOCKS;
 		}			
@@ -137,7 +141,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 			int index = CrailUtils.computeIndex(fileInfo.getDirOffset());
 			parentBlock = parentInfo.getBlock(index);
 			if (parentBlock == null){
-				parentBlock = blockStore.getBlock(parentInfo.getStorageClass(), parentInfo.getLocationClass());
+				parentBlock = blockStore.getBlock(parentInfo.getStorageClass(), parentInfo.getLocationClass(), _lookupMask(parentInfo));
 				if (parentBlock == null){
 					return RpcErrors.ERR_NO_FREE_BLOCKS;
 				}			
@@ -364,7 +368,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		index = CrailUtils.computeIndex(srcFile.getDirOffset());
 		NameNodeBlockInfo dstBlock = dstParent.getBlock(index);
 		if (dstBlock == null){
-			dstBlock = blockStore.getBlock(dstParent.getStorageClass(), dstParent.getLocationClass());
+			dstBlock = blockStore.getBlock(dstParent.getStorageClass(), dstParent.getLocationClass(), _lookupMask(dstParent));
 			if (dstBlock == null){
 				return RpcErrors.ERR_NO_FREE_BLOCKS;
 			}			
@@ -495,7 +499,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		
 		NameNodeBlockInfo block = fileInfo.getBlock(index);
 		if (block == null && fileInfo.getToken() == token){
-			block = blockStore.getBlock(fileInfo.getStorageClass(), fileInfo.getLocationClass());
+			block = blockStore.getBlock(fileInfo.getStorageClass(), fileInfo.getLocationClass(), _lookupMask(fileInfo));
 			if (block == null){
 				return RpcErrors.ERR_NO_FREE_BLOCKS;
 			}
@@ -619,9 +623,12 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 
 			case IOCtlCommand.NN_SET_WMASK: {
 				System.err.println(" Got the command for weighted mask ");
-				IOCtlResponse.IOCtlVoidResp resp = new IOCtlResponse.IOCtlVoidResp(0); // 0 error code for ioctl
+				IOCtlCommand.AttachWeigthMaskCommand wm = (IOCtlCommand.AttachWeigthMaskCommand) request.getIOCtlCommand();
+				short ecode = installWeightMask(wm, errorState);
+				//for now we pack the error code into the void status too
+				IOCtlResponse.IOCtlVoidResp resp = new IOCtlResponse.IOCtlVoidResp(ecode);
 				response.setResponse(IOCtlCommand.NN_SET_WMASK, resp);
-				return RpcErrors.ERR_OK;
+				return ecode;
 			}
 
 			default: throw new NotImplementedException();
@@ -635,6 +642,25 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		LOG.info("IOCTL: removing data node: " + dn);
 		DataNodeInfo dnInfo = new DataNodeInfo(0, 0, 0, dn.getIPAddress().getAddress(), dn.port());
 		return blockStore.prepareDataNodeForRemoval(dnInfo);
+	}
+
+	private short installWeightMask(IOCtlCommand.AttachWeigthMaskCommand wm, RpcNameNodeState errorState) throws Exception {
+		// we implement it here
+		FileName dirLocation = wm.getDirLocation();
+		AbstractNode nodeInfo = fileTree.retrieveFile(dirLocation, errorState);
+		if (errorState.getError() != RpcErrors.ERR_OK){
+			// it will only return this if the depth exceeds the certain size
+			return errorState.getError();
+		}
+		if (nodeInfo == null) {
+			return RpcErrors.ERR_DIR_NOT_FOUND;
+		}
+		if (!nodeInfo.getType().isContainer()){
+			return RpcErrors.ERR_FILE_IS_NOT_DIR;
+		}
+		// otherwise we are ready to install the map
+		System.err.println("Everything checks out, we are ready to install the map");
+		return RpcErrors.ERR_OK;
 	}
 	
 	void appendToDeleteQueue(AbstractNode fileInfo) throws Exception {
@@ -656,5 +682,11 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 			AbstractNode file = fileTable.get(key);
 			System.out.println(file.toString());
 		}		
+	}
+
+	private WeightMask _lookupMask(AbstractNode node){
+		long index = node.getWeightMapIndex();
+		// we look it up otherwise null
+		return this.weightMask.getOrDefault(index, null);
 	}
 }

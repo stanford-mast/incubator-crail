@@ -1,5 +1,6 @@
 package org.apache.crail.namenode;
 
+import org.apache.crail.WeightMask;
 import org.apache.crail.conf.CrailConstants;
 import org.apache.crail.metadata.DataNodeInfo;
 import org.apache.crail.rpc.RpcErrors;
@@ -82,7 +83,7 @@ public class PocketBlockStore {
         return block;
     }
 
-    public NameNodeBlockInfo getBlock(int storageClass, int locationAffinity) throws InterruptedException {
+    public NameNodeBlockInfo getBlock(int storageClass, int locationAffinity, WeightMask mask) throws InterruptedException {
         boolean found = false;
         NameNodeBlockInfo block = null;
         while (!found) {
