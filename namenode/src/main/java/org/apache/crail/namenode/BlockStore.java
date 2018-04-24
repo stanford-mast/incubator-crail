@@ -69,7 +69,7 @@ public class BlockStore {
 		return storageClasses[storageClass].updateRegion(region);
 	}
 
-	private NameNodeBlockInfo _getBlock(int storageClass, int locationAffinity) throws InterruptedException {
+	private NameNodeBlockInfo getBlock(int storageClass, int locationAffinity) throws InterruptedException {
 		NameNodeBlockInfo block = null;
 		if (storageClass > 0){
 			if (storageClass < storageClasses.length){
@@ -87,17 +87,6 @@ public class BlockStore {
 			}
 		}
 		
-		return block;
-	}
-
-	public NameNodeBlockInfo getBlock(int storageClass, int locationAffinity) throws InterruptedException {
-		boolean found = false;
-		NameNodeBlockInfo block = null;
-		while(!found) {
-			block = _getBlock(storageClass, locationAffinity);
-			if(block != null && !block.isDeleted())
-				found = true;
-		}
 		return block;
 	}
 

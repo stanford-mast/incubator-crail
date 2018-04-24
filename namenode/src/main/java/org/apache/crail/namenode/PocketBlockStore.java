@@ -62,7 +62,7 @@ public class PocketBlockStore {
         return storageClasses[storageClass].addBlock(blockInfo);
     }
 
-    private NameNodeBlockInfo _getBlock(int storageClass, int locationAffinity) throws InterruptedException {
+    public NameNodeBlockInfo getBlock(int storageClass, int locationAffinity, WeightMask mask) throws InterruptedException {
         NameNodeBlockInfo block = null;
         if (storageClass > 0) {
             if (storageClass < storageClasses.length) {
@@ -80,17 +80,6 @@ public class PocketBlockStore {
             }
         }
 
-        return block;
-    }
-
-    public NameNodeBlockInfo getBlock(int storageClass, int locationAffinity, WeightMask mask) throws InterruptedException {
-        boolean found = false;
-        NameNodeBlockInfo block = null;
-        while (!found) {
-            block = _getBlock(storageClass, locationAffinity);
-            if (block != null && !block.isDeleted())
-                found = true;
-        }
         return block;
     }
 

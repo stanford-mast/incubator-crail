@@ -30,8 +30,6 @@ public class BlockInfo {
 	protected long addr;
 	protected int length;
 	protected int lkey;
-	// BAD: this is namenode specific stuff here.
-	protected boolean deleted;
 
 	public BlockInfo(){
 		this.dnInfo = new DataNodeInfo();
@@ -39,7 +37,6 @@ public class BlockInfo {
 		this.addr = 0;
 		this.length = 0;
 		this.lkey = 0;
-		this.deleted = false;
 	}
 	
 	public BlockInfo(DataNodeInfo dnInfo, long lba, long addr, int length, int lkey){
@@ -48,7 +45,6 @@ public class BlockInfo {
 		this.addr = addr;
 		this.length = length;
 		this.lkey = lkey;
-		this.deleted = false;
 	}
 	
 	public void setBlockInfo(BlockInfo blockInfo) {
@@ -57,7 +53,6 @@ public class BlockInfo {
 		this.addr = blockInfo.getAddr();
 		this.length = blockInfo.getLength();
 		this.lkey = blockInfo.getLkey();
-		this.deleted = blockInfo.deleted;
 	}
 
 	public int write(ByteBuffer buffer){
@@ -96,14 +91,6 @@ public class BlockInfo {
 
 	public DataNodeInfo getDnInfo() {
 		return dnInfo;
-	}
-
-	public boolean isDeleted() {
-		return deleted;
-	}
-
-	public void setDeleted() {
-		this.deleted = true;
 	}
 
 	@Override
