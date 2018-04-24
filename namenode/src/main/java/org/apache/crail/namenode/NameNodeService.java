@@ -282,7 +282,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		
 		response.setParentInfo(parentInfo);
 		response.setFileInfo(fileInfo);
-		
+
 		fileInfo = parentInfo.removeChild(fileInfo.getComponent());
 		if (fileInfo == null){
 			return RpcErrors.ERR_GET_FILE_FAILED;
@@ -670,6 +670,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 			nodeInfo.setWeightMapIndex(idx);
 		}
 		this.weightMask.put(nodeInfo.getWeightMapIndex(), mask);
+		LOG.info("IOCTL: installing weighted mask, current active masks " + this.weightMask.size());
 		return RpcErrors.ERR_OK;
 	}
 	
@@ -678,12 +679,16 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 			fileInfo.setDelay(CrailConstants.TOKEN_EXPIRATION);
 			deleteQueue.add(fileInfo);			
 		}
-	}	
+	}
 	
 	void freeFile(AbstractNode fileInfo) throws Exception {
 		if (fileInfo != null) {
 			fileTable.remove(fileInfo.getFd());
 			fileInfo.freeBlocks(blockStore);
+			if(fileInfo.getWeightMapIndex() != -1){
+				// remove the map
+				this.weightMask.remove(fileInfo.getWeightMapIndex());
+			}
 		}
 	}
 
