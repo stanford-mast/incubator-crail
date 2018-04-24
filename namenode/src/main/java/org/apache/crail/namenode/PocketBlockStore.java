@@ -66,14 +66,14 @@ public class PocketBlockStore {
         NameNodeBlockInfo block = null;
         if (storageClass > 0) {
             if (storageClass < storageClasses.length) {
-                block = storageClasses[storageClass].getBlock(locationAffinity);
+                block = storageClasses[storageClass].getBlock(locationAffinity, mask);
             } else {
                 //TODO: warn if requested storage class is invalid
             }
         }
         if (block == null) {
             for (int i = 0; i < storageClasses.length; i++) {
-                block = storageClasses[i].getBlock(locationAffinity);
+                block = storageClasses[i].getBlock(locationAffinity, mask);
                 if (block != null) {
                     break;
                 }
@@ -150,7 +150,16 @@ class PocketStorageClass {
         return RpcErrors.ERR_OK;
     }
 
-    NameNodeBlockInfo getBlock(int affinity) throws InterruptedException {
+    NameNodeBlockInfo getBlock(int locationAffinity, WeightMask mask) throws InterruptedException{
+        if(mask == null || mask.isEmpty()){
+            // we mark empty mask as no preference
+            return getBlockWithoutMask(locationAffinity);
+        } else {
+            return getBlockWithMask(mask);
+        }
+    }
+
+    NameNodeBlockInfo getBlockWithoutMask(int locationAffinity) throws InterruptedException {
         NameNodeBlockInfo block = null;
         int size = this.membership.size();
         if (size > 0) {
@@ -159,6 +168,28 @@ class PocketStorageClass {
                 int index = (startIndex + i) % size;
                 DataNodeBlocks anyDn = this.membership.getByIndex(index);
                 if (anyDn.isOnline()) {
+                    block = anyDn.getFreeBlock();
+                }
+                if (block != null) {
+                    break;
+                }
+            }
+        }
+        return block;
+    }
+
+    NameNodeBlockInfo getBlockWithMask(WeightMask mask) throws InterruptedException {
+        NameNodeBlockInfo block = null;
+        // we circulate on the given mask
+        int size = mask.size();
+        if (size > 0) {
+            int startIndex = mask.getNextNode();
+            for (int i = 0; i < size; i++) {
+                int index = (startIndex + i) % size;
+                // look it up
+                DataNodeBlocks anyDn = this.membership.getByDataNodeKey(mask.getEntry(index).datanodeHash);
+                // a datanode might be gone and hence it might return null
+                if (anyDn!= null && anyDn.isOnline()) {
                     block = anyDn.getFreeBlock();
                 }
                 if (block != null) {
@@ -282,9 +313,13 @@ class PocketStorageClass {
         }
 
         DataNodeBlocks getByDataNode(DataNodeInfo dn) {
+            return getByDataNodeKey(dn.key());
+        }
+
+        DataNodeBlocks getByDataNodeKey(long dnKey) {
             lock.readLock().lock();
             try {
-                return this.membership.get(dn.key());
+                return this.membership.get(dnKey);
                 // something
             } finally {
                 lock.readLock().unlock();

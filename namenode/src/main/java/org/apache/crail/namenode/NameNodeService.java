@@ -53,6 +53,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 	// TODO: how do we remove it?
 	// when we are removing a node whose top entry (i.e. "/") does not match the one we are trying to remove
 	private ConcurrentHashMap<Long, WeightMask> weightMask;
+	private AtomicLong weightIndex;
 	private GCServer gcServer;
 	
 	public NameNodeService() throws IOException {
@@ -66,8 +67,10 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		this.deleteQueue = new DelayQueue<AbstractNode>();
 		this.fileTree = new FileStore(this);
 		this.fileTable = new ConcurrentHashMap<Long, AbstractNode>();
-		this.weightMask = new ConcurrentHashMap<>();
 		this.gcServer = new GCServer(this, deleteQueue);
+
+		this.weightMask = new ConcurrentHashMap<>();
+		this.weightIndex = new AtomicLong();
 		
 		AbstractNode root = fileTree.getRoot();
 		fileTable.put(root.getFd(), root);
@@ -660,8 +663,13 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		}
 		// otherwise we are ready to install the map
 		WeightMask mask = wm.getWeightMask();
-		System.err.println("Everything checks out, we are ready to install the map >> " + mask.toString());
-
+		long oldIndex = nodeInfo.getWeightMapIndex();
+		if(oldIndex == -1){
+			// then we install a new entry
+			long idx = this.weightIndex.getAndIncrement();
+			nodeInfo.setWeightMapIndex(idx);
+		}
+		this.weightMask.put(nodeInfo.getWeightMapIndex(), mask);
 		return RpcErrors.ERR_OK;
 	}
 	

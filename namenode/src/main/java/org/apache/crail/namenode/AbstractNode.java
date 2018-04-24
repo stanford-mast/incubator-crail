@@ -54,7 +54,7 @@ public abstract class AbstractNode extends FileInfo implements Delayed {
 
 	public AbstractNode(long fd, int fileComponent, CrailNodeType type, int storageClass, int locationAffinity, boolean enumerable){
 		super(fd, type, enumerable);
-		_initialize(fd, fileComponent, type, storageClass, locationAffinity, enumerable, 0);
+		_initialize(fd, fileComponent, type, storageClass, locationAffinity, enumerable, -1);
 	}
 
 	public AbstractNode(long fd, int fileComponent, CrailNodeType type, int storageClass, int locationAffinity, boolean enumerable, long weightMapIndex){

@@ -22,6 +22,10 @@ public class WeightMask {
         return Integer.BYTES + (this.mask.size() * DataNodeWeight.CSIZE);
     }
 
+    public int size(){
+        return this.mask.size();
+    }
+
     public int write(ByteBuffer buffer) throws IOException {
         int items = this.mask.size();
         int size = getSize();
@@ -55,5 +59,31 @@ public class WeightMask {
         for(int i = 0; i < this.mask.size(); i++)
             stringBuilder.append(this.mask.get(i).toString());
         return stringBuilder.toString();
+    }
+
+    public int getNextNode(){
+        //https://stackoverflow.com/questions/6737283/weighted-randomness-in-java
+        // Compute the total weight of all items together
+        double totalWeight = 0.0;
+        for(int i = 0; i < this.mask.size();i++) {
+            totalWeight += this.mask.get(i).weight;
+        }
+        // Now choose a random item
+        int randomIndex = -1;
+        double random = Math.random() * totalWeight;
+        for (int i = 0; i < this.mask.size(); ++i)
+        {
+            random -= this.mask.get(i).weight;
+            if (random <= 0.0d)
+            {
+                randomIndex = i;
+                break;
+            }
+        }
+        return randomIndex;
+    }
+
+    public DataNodeWeight getEntry(int index){
+        return this.mask.get(index);
     }
 }
