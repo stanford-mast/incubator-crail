@@ -1,5 +1,6 @@
 package org.apache.crail.rpc;
 
+import org.apache.crail.WeightMask;
 import org.apache.crail.metadata.FileName;
 
 import java.io.IOException;
@@ -117,30 +118,43 @@ public abstract class IOCtlCommand {
         // this need the hash of the directory name
         private FileName dirLocation;
         // and a list of int,<ip,mask>
+        private WeightMask mask;
 
         public AttachWeigthMaskCommand(){
             this.dirLocation = new FileName();
+            this.mask = new WeightMask();
         }
 
-        public AttachWeigthMaskCommand(FileName dirLocation){
+        public AttachWeigthMaskCommand(FileName dirLocation, WeightMask mask){
             this.dirLocation = dirLocation;
+            this.mask = mask;
         }
 
-        public int write(ByteBuffer buffer){
-            return this.dirLocation.write(buffer);
+        public int write(ByteBuffer buffer) throws IOException{
+            int s1 = this.dirLocation.write(buffer);
+            int s2 = this.mask.write(buffer);
+            return s1 + s2;
         }
 
-        public void update(ByteBuffer buffer){
+        public void update(ByteBuffer buffer) throws IOException {
             this.dirLocation.update(buffer);
+            this.mask.update(buffer);
         }
 
         public int getSize(){
-            // for now there is just the fileInfo
-            return FileName.CSIZE;
+            return FileName.CSIZE + this.mask.getSize();
         }
 
         public FileName getDirLocation(){
             return this.dirLocation;
+        }
+
+        public WeightMask getWeightMask(){
+            return this.mask;
+        }
+
+        public boolean isEmpty(){
+            return this.mask.isEmpty();
         }
 
         public String toString(){ return "AttachWeigthMaskCommand";}

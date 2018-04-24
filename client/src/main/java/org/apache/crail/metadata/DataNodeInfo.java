@@ -110,9 +110,14 @@ public class DataNodeInfo {
 	
 	public long key(){
 		if (key == 0){
-			int a = java.util.Arrays.hashCode(ipAddress);
-			key = (((long)a) << 32) | (port & 0xffffffffL);
+			key = DataNodeInfo.calcDataNodeKey(ipAddress, port);
 		}
+		return key;
+	}
+
+	public static long calcDataNodeKey(byte[] ipAddress, int port){
+		int a = java.util.Arrays.hashCode(ipAddress);
+		long key = (((long)a) << 32) | (port & 0xffffffffL);
 		return key;
 	}
 

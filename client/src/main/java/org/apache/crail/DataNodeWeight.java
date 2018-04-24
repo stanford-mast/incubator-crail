@@ -6,21 +6,23 @@ import java.nio.ByteBuffer;
  * Created by atr on 24.04.18.
  */
 public class DataNodeWeight {
-    public int ip;
-    public int port;
+    public long datanodeHash;
     public float weight;
-    public static int CSIZE = ( 2 * Integer.BYTES) + Float.BYTES;
+    public static int CSIZE = Long.BYTES + Float.BYTES;
 
     public int write(ByteBuffer buffer){
-        buffer.putInt(ip);
-        buffer.putInt(port);
+        buffer.putLong(datanodeHash);
         buffer.putFloat(weight);
         return CSIZE;
     }
 
     public void update(ByteBuffer buffer){
-        this.ip = buffer.getInt();
-        this.port = buffer.getInt();
+        this.datanodeHash = buffer.getLong();
         this.weight = buffer.getFloat();
+    }
+
+    @Override
+    public String toString() {
+        return ("\t | hash: " + datanodeHash + " weight " + weight + " | \n");
     }
 }

@@ -27,7 +27,6 @@ import java.util.concurrent.DelayQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.crail.CrailNodeType;
-import org.apache.crail.DataNodeWeight;
 import org.apache.crail.IOCtlResponse;
 import org.apache.crail.WeightMask;
 import org.apache.crail.conf.CrailConstants;
@@ -51,6 +50,8 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 	private DelayQueue<AbstractNode> deleteQueue;
 	private FileStore fileTree;
 	private ConcurrentHashMap<Long, AbstractNode> fileTable;
+	// TODO: how do we remove it?
+	// when we are removing a node whose top entry (i.e. "/") does not match the one we are trying to remove
 	private ConcurrentHashMap<Long, WeightMask> weightMask;
 	private GCServer gcServer;
 	
@@ -622,7 +623,6 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 			}
 
 			case IOCtlCommand.NN_SET_WMASK: {
-				System.err.println(" Got the command for weighted mask ");
 				IOCtlCommand.AttachWeigthMaskCommand wm = (IOCtlCommand.AttachWeigthMaskCommand) request.getIOCtlCommand();
 				short ecode = installWeightMask(wm, errorState);
 				//for now we pack the error code into the void status too
@@ -659,7 +659,9 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 			return RpcErrors.ERR_FILE_IS_NOT_DIR;
 		}
 		// otherwise we are ready to install the map
-		System.err.println("Everything checks out, we are ready to install the map");
+		WeightMask mask = wm.getWeightMask();
+		System.err.println("Everything checks out, we are ready to install the map >> " + mask.toString());
+
 		return RpcErrors.ERR_OK;
 	}
 	

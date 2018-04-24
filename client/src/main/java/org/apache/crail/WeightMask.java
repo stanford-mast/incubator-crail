@@ -1,5 +1,6 @@
 package org.apache.crail;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
@@ -17,11 +18,15 @@ public class WeightMask {
         this.mask.add(w);
     }
 
-    public int write(ByteBuffer buffer) throws Exception {
-        int items =this.mask.size();
-        int size = Integer.BYTES + (items * DataNodeWeight.CSIZE);
+    public int getSize(){
+        return Integer.BYTES + (this.mask.size() * DataNodeWeight.CSIZE);
+    }
+
+    public int write(ByteBuffer buffer) throws IOException {
+        int items = this.mask.size();
+        int size = getSize();
         if(buffer.remaining() < size){
-            throw new Exception("Size too small");
+            throw new IOException("Size too small");
         }
         buffer.putInt(items);
         for(int i = 0; i < items; i++) {
@@ -30,12 +35,25 @@ public class WeightMask {
         return size;
     }
 
-    public void update(ByteBuffer buffer) throws Exception {
+    public void update(ByteBuffer buffer) throws IOException {
         int items = buffer.getInt();
         for(int i = 0; i < items; i++) {
             DataNodeWeight w = new DataNodeWeight();
             w.update(buffer);
             this.mask.add(w);
         }
+    }
+
+    public boolean isEmpty(){
+        return this.mask.isEmpty();
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("\nentries: " + this.mask.size()+"\n");
+        for(int i = 0; i < this.mask.size(); i++)
+            stringBuilder.append(this.mask.get(i).toString());
+        return stringBuilder.toString();
     }
 }

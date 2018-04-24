@@ -20,6 +20,7 @@
 package org.apache.crail.tools;
 
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -38,6 +39,7 @@ import org.apache.crail.conf.CrailConstants;
 import org.apache.crail.core.CoreDataStore;
 import org.apache.crail.core.DirectoryInputStream;
 import org.apache.crail.core.DirectoryRecord;
+import org.apache.crail.metadata.DataNodeInfo;
 import org.apache.crail.metadata.FileName;
 import org.apache.crail.rpc.IOCtlCommand;
 import org.apache.crail.utils.CrailUtils;
@@ -147,11 +149,12 @@ public class CrailFsck {
 		fs.closeFileSystem();
 	}
 
-	public void testWMask(String dirname) throws Exception {
+	public void testWMask(String dirname, String wmaskArgs) throws Exception {
 		CrailConfiguration conf = new CrailConfiguration();
 		CrailConstants.updateConstants(conf);
 		CoreDataStore fs = new CoreDataStore(conf);
-		IOCtlCommand.AttachWeigthMaskCommand cmd = new IOCtlCommand.AttachWeigthMaskCommand(new FileName(dirname));
+		WeightMask mask = makeMask(wmaskArgs);
+		IOCtlCommand.AttachWeigthMaskCommand cmd = new IOCtlCommand.AttachWeigthMaskCommand(new FileName(dirname), mask);
 		IOCtlResponse.IOCtlVoidResp resp = (IOCtlResponse.IOCtlVoidResp) fs.ioctlNameNode(cmd);
 		System.err.println("Void return code was: "+ resp.ioctlErrorCode());
 		fs.closeFileSystem();
@@ -166,6 +169,34 @@ public class CrailFsck {
 	}	
 	
 	//-----------------
+
+	private WeightMask makeMask(String string) throws IllegalArgumentException, UnknownHostException {
+		WeightMask mask = new WeightMask();
+		if(string == null){
+			return mask;
+		}
+		String[] tokens = string.split(",");
+		if(tokens.length % 3 != 0){
+			throw new IllegalArgumentException(" tokens are : " + tokens.length + " must be a multiple of 3");
+		}
+		for(int i = 0; i < tokens.length; i+=1){
+			tokens[i] = tokens[i].trim();
+		}
+
+		for(int i = 0; i < tokens.length; i+=3){
+			DataNodeWeight w = new DataNodeWeight();
+			byte[] ip = InetAddress.getByName(tokens[i]).getAddress();
+			int port = 50020; // default port number
+			if(!tokens[i + 2].isEmpty()){
+				port = Integer.parseInt(tokens[i+2]);
+			}
+			float weight = Float.parseFloat(tokens[i+1]);
+			w.datanodeHash = DataNodeInfo.calcDataNodeKey(ip, port);
+			w.weight = weight;
+			mask.addMask(w);
+		}
+		return mask;
+	}
 
 	private String padRight(String s, int n) {
 		return String.format("%1$-" + n + "s", s);
@@ -204,6 +235,7 @@ public class CrailFsck {
 		int port = 50020; // the default TCP port number
 		String type = "";
 		String filename = "/tmp.dat";
+		String maskString = null;
 		long offset = 0;
 		long length = 1;
 		boolean randomize = false;	
@@ -218,6 +250,7 @@ public class CrailFsck {
 		Option storageOption = Option.builder("c").desc("storageClass for file [1..n]").hasArg().build();
 		Option locationOption = Option.builder("p").desc("locationClass for file [1..n]").hasArg().build();
 		Option portOption = Option.builder("P").desc("port of the datanode to eject").hasArg().build();
+		Option maskOption = Option.builder("m").desc("weigthmask: a sequence of <hostname,weight,port>, like localhost,0.2,5001,localhost,0.5,,localhost,0.3,5002. Args can be skipped but not the comma").hasArg().build();
 		Option helpOption = Option.builder("h").desc("show help").build();
 		
 		Options options = new Options();
@@ -228,6 +261,7 @@ public class CrailFsck {
 		options.addOption(lengthOption);
 		options.addOption(storageOption);
 		options.addOption(locationOption);
+		options.addOption(maskOption);
 		options.addOption(helpOption);
 		options.addOption(portOption);
 		
@@ -257,6 +291,9 @@ public class CrailFsck {
 		if (line.hasOption(locationOption.getOpt())) {
 			locationClass = Integer.parseInt(line.getOptionValue(locationOption.getOpt()));
 		}
+		if (line.hasOption(maskOption.getOpt())) {
+			maskString = line.getOptionValue(maskOption.getOpt());
+		}
 		if(line.hasOption(helpOption.getOpt())){
 			HelpFormatter formatter = new HelpFormatter();
 			formatter.printHelp("crail fsck", options);
@@ -281,7 +318,7 @@ public class CrailFsck {
 		} else if (type.equals("getClassStats")){
 			fsck.IOCtlGetClassStats(storageClass);
 		} else if (type.equals("testWMask")){
-			fsck.testWMask(filename);
+			fsck.testWMask(filename, maskString);
 		} else {
 			HelpFormatter formatter = new HelpFormatter();
 			formatter.printHelp("crail fsck", options);
