@@ -1,5 +1,7 @@
 package org.apache.crail.rpc;
 
+import org.apache.crail.metadata.FileName;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -12,6 +14,7 @@ public abstract class IOCtlCommand {
     public static final byte NOP       = 1;
     public static final byte DN_REMOVE = 2;
     public static final byte NN_GET_CLASS_STAT = 3;
+    public static final byte NN_SET_WMASK = 4;
 
     public abstract int write(ByteBuffer buffer) throws IOException;
     public abstract void update(ByteBuffer buffer) throws IOException;
@@ -108,6 +111,35 @@ public abstract class IOCtlCommand {
         public int getSize(){ return GetClassStatCommand.CSIZE;}
 
         public String toString(){ return "GetClassStatCommand class: " + this.storageClass;}
+    }
+
+    public static class AttachWeigthMaskCommand extends IOCtlCommand {
+        // this need the hash of the directory name
+        private FileName dirLocation;
+        // and a list of int,<ip,mask>
+
+        public AttachWeigthMaskCommand(){
+            this.dirLocation = new FileName();
+        }
+
+        public AttachWeigthMaskCommand(FileName dirLocation){
+            this.dirLocation = dirLocation;
+        }
+
+        public int write(ByteBuffer buffer){
+            return this.dirLocation.write(buffer);
+        }
+
+        public void update(ByteBuffer buffer){
+            this.dirLocation.update(buffer);
+        }
+
+        public int getSize(){
+            // for now there is just the fileInfo
+            return FileName.CSIZE;
+        }
+
+        public String toString(){ return "AttachWeigthMaskCommand";}
     }
 
     public static class NoOpCommand extends IOCtlCommand {

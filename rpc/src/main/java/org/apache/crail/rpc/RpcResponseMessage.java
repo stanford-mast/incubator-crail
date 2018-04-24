@@ -703,6 +703,9 @@ public class RpcResponseMessage {
 				case IOCtlCommand.NN_GET_CLASS_STAT:
 					this.resp = new IOCtlResponse.GetClassStatResp();
 					break;
+				case IOCtlCommand.NN_SET_WMASK:
+					this.resp = new IOCtlResponse.IOCtlVoidResp();
+					break;
 				default:
 					throw new IOException("NYI: ioctl opcode " + this.opcode);
 			}
@@ -714,13 +717,9 @@ public class RpcResponseMessage {
 			return this.resp;
 		}
 
-		public void setResponse(IOCtlResponse resp){
+		public void setResponse(byte opcode, IOCtlResponse resp){
 			this.resp = resp;
-			if(resp instanceof IOCtlResponse.GetClassStatResp){
-				this.opcode = IOCtlCommand.NN_GET_CLASS_STAT;
-			} else if(resp instanceof IOCtlResponse.IOCtlDataNodeRemoveResp){
-				this.opcode = IOCtlCommand.DN_REMOVE;
-			}
+			this.opcode = opcode;
 		}
 
 		public short getError(){

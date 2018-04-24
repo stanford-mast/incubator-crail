@@ -590,6 +590,8 @@ public class RpcRequestMessage {
 				this.opcode = IOCtlCommand.DN_REMOVE;
 			} else if (ops instanceof IOCtlCommand.GetClassStatCommand) {
 				this.opcode = IOCtlCommand.NN_GET_CLASS_STAT;
+			}  else if (ops instanceof IOCtlCommand.AttachWeigthMaskCommand) {
+				this.opcode = IOCtlCommand.NN_SET_WMASK;
 			}
 		}
 
@@ -636,6 +638,9 @@ public class RpcRequestMessage {
 					break;
 				case IOCtlCommand.NN_GET_CLASS_STAT:
 					this.cmd = new IOCtlCommand.GetClassStatCommand();
+					break;
+				case IOCtlCommand.NN_SET_WMASK:
+					this.cmd = new IOCtlCommand.AttachWeigthMaskCommand();
 					break;
 				default:
 					throw new IOException("NYI: ioctl opcode " + this.opcode);

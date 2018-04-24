@@ -212,6 +212,17 @@ class PocketStorageClass {
         }
     }
 
+    private class WeightedRandomMaskSelection implements BlockSelection {
+        WeightedRandomMaskSelection() {
+            LOG.info("WeightedRandomMask block selection");
+        }
+
+        @Override
+        public int getNext(int size) {
+            return 1;
+        }
+    }
+
     private class ConcurrentIndexedHashMap {
         // this is the hashmap from long -> DataNodeBlocks
         private HashMap<Long, DataNodeBlocks> membership;

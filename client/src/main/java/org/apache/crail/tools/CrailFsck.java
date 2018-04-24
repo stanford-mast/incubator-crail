@@ -146,6 +146,16 @@ public class CrailFsck {
 		System.out.println(stats);
 		fs.closeFileSystem();
 	}
+
+	public void testWMask(String dirname) throws Exception {
+		CrailConfiguration conf = new CrailConfiguration();
+		CrailConstants.updateConstants(conf);
+		CoreDataStore fs = new CoreDataStore(conf);
+		IOCtlCommand.AttachWeigthMaskCommand cmd = new IOCtlCommand.AttachWeigthMaskCommand(new FileName(dirname));
+		IOCtlResponse.IOCtlVoidResp resp = (IOCtlResponse.IOCtlVoidResp) fs.ioctlNameNode(cmd);
+		System.err.println("Void return code was: "+ resp.ioctlErrorCode());
+		fs.closeFileSystem();
+	}
 	
 	public void createDirectory(String filename, int storageClass, int locationClass) throws Exception {
 		System.out.println("createDirectory, filename " + filename + ", storageClass " + storageClass + ", locationClass " + locationClass);
@@ -200,7 +210,7 @@ public class CrailFsck {
 		int storageClass = 0;
 		int locationClass = 0;		
 		
-		Option typeOption = Option.builder("t").desc("type of experiment [getLocations|directoryDump|namenodeDump|blockStatistics|ping|createDirectory|removeDataNode|getClassStats]").hasArg().build();
+		Option typeOption = Option.builder("t").desc("type of experiment [getLocations|directoryDump|namenodeDump|blockStatistics|ping|createDirectory|removeDataNode|getClassStats|testWMask]").hasArg().build();
 		Option dataNodeOption = Option.builder("d").desc("datanode to be removed").hasArg().build();
 		Option fileOption = Option.builder("f").desc("filename").hasArg().build();
 		Option offsetOption = Option.builder("y").desc("offset into the file").hasArg().build();
@@ -270,6 +280,8 @@ public class CrailFsck {
 			fsck.IOCtlRemoveDN(datanodeAddress, port);
 		} else if (type.equals("getClassStats")){
 			fsck.IOCtlGetClassStats(storageClass);
+		} else if (type.equals("testWMask")){
+			fsck.testWMask(filename);
 		} else {
 			HelpFormatter formatter = new HelpFormatter();
 			formatter.printHelp("crail fsck", options);

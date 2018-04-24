@@ -594,26 +594,35 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 			case IOCtlCommand.NOP:
 				return RpcErrors.ERR_OK;
 
-			case IOCtlCommand.DN_REMOVE :
+			case IOCtlCommand.DN_REMOVE : {
 				IOCtlCommand.RemoveDataNode dn = (IOCtlCommand.RemoveDataNode) request.getIOCtlCommand();
 				IOCtlResponse.IOCtlDataNodeRemoveResp resp = new IOCtlResponse.IOCtlDataNodeRemoveResp();
-				response.setResponse(resp);
+				response.setResponse(IOCtlCommand.DN_REMOVE, resp);
 				return prepareDataNodeForRemoval(dn);
+			}
 
-			case IOCtlCommand.NN_GET_CLASS_STAT:
+			case IOCtlCommand.NN_GET_CLASS_STAT: {
 				IOCtlCommand.GetClassStatCommand cmd = (IOCtlCommand.GetClassStatCommand) request.getIOCtlCommand();
 				long totalBlocks = this.blockStore.getTotalBlocks(cmd.getStorageClass());
-				if(totalBlocks < 0 ){
+				if (totalBlocks < 0) {
 					//error, that means that the storage class is not valid
 					// this is already negative with the RPC error code, make it positive so that it indexes into
 					// the error message array
-					return (short) ( 0 - totalBlocks);
+					return (short) (0 - totalBlocks);
 				}
 				long freeBlocks = this.blockStore.getFreeBlocks(cmd.getStorageClass());
 				assert (freeBlocks >= 0);
 				IOCtlResponse.GetClassStatResp stat = new IOCtlResponse.GetClassStatResp(totalBlocks, freeBlocks);
-				response.setResponse(stat);
+				response.setResponse(IOCtlCommand.NN_GET_CLASS_STAT, stat);
 				return RpcErrors.ERR_OK;
+			}
+
+			case IOCtlCommand.NN_SET_WMASK: {
+				System.err.println(" Got the command for weighted mask ");
+				IOCtlResponse.IOCtlVoidResp resp = new IOCtlResponse.IOCtlVoidResp(0); // 0 error code for ioctl
+				response.setResponse(IOCtlCommand.NN_SET_WMASK, resp);
+				return RpcErrors.ERR_OK;
+			}
 
 			default: throw new NotImplementedException();
 		}

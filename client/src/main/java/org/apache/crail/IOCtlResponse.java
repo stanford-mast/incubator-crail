@@ -10,6 +10,7 @@ abstract public class IOCtlResponse {
     public abstract int write(ByteBuffer buffer) throws IOException;
     public abstract void update(ByteBuffer buffer) throws IOException;
     public abstract int getSize();
+    public abstract int ioctlErrorCode();
 
     public static class IOCtlNopResp extends IOCtlResponse {
         public static int CSIZE = 0;
@@ -17,19 +18,66 @@ abstract public class IOCtlResponse {
         public IOCtlNopResp(){
         }
 
+        @Override
         public int write(ByteBuffer buffer) throws IOException {
             return IOCtlNopResp.CSIZE;
         }
 
+        @Override
         public void update(ByteBuffer buffer) throws IOException {
         }
 
+        @Override
         public int getSize(){
             return IOCtlNopResp.CSIZE;
         }
 
+        @Override
+        public int ioctlErrorCode() {
+            return 0;
+        }
+
         public String toString(){
             return "IOCtlNopResp: Empty";
+        }
+    }
+
+    public static class IOCtlVoidResp extends IOCtlResponse {
+        public static int CSIZE = Integer.BYTES;
+        private int ecode;
+
+        public IOCtlVoidResp(int ecode){
+            this.ecode = ecode;
+        }
+
+        public IOCtlVoidResp(){
+            this.ecode = -1;
+        }
+
+        @Override
+        public int write(ByteBuffer buffer) throws IOException {
+            buffer.putInt(this.ecode);
+            return Integer.BYTES;
+        }
+
+        @Override
+        public void update(ByteBuffer buffer) throws IOException {
+            this.ecode = buffer.getInt();
+        }
+
+        @Override
+        public int getSize(){
+            return IOCtlVoidResp.CSIZE;
+        }
+
+        @Override
+        public int ioctlErrorCode() {
+            return this.ecode;
+        }
+
+        @Override
+        public String toString(){
+            return "IOCtlVoidResp: ecode: " + ecode;
         }
     }
 
@@ -39,17 +87,26 @@ abstract public class IOCtlResponse {
         public IOCtlDataNodeRemoveResp(){
         }
 
+        @Override
         public int write(ByteBuffer buffer) throws IOException {
             return IOCtlDataNodeRemoveResp.CSIZE;
         }
 
+        @Override
         public void update(ByteBuffer buffer) throws IOException {
         }
 
+        @Override
         public int getSize(){
             return IOCtlDataNodeRemoveResp.CSIZE;
         }
 
+        @Override
+        public int ioctlErrorCode() {
+            return 0;
+        }
+
+        @Override
         public String toString(){
             return "IOCtlResponse: Empty";
         }
@@ -70,6 +127,7 @@ abstract public class IOCtlResponse {
             this.freeBlocks = consumed;
         }
 
+        @Override
         public int write(ByteBuffer buffer) throws IOException {
             if(GetClassStatResp.CSIZE > buffer.remaining()) {
                 throw new IOException("Write ByteBuffer is too small, remaining " + buffer.remaining() + " expected, " + GetClassStatResp.CSIZE + " bytes");
@@ -80,6 +138,7 @@ abstract public class IOCtlResponse {
             return GetClassStatResp.CSIZE;
         }
 
+        @Override
         public void update(ByteBuffer buffer) throws IOException {
             if(getSize() > buffer.remaining()) {
                 throw new IOException("Read ByteBuffer is too small, remaining " + buffer.remaining() + " expected, " + getSize() + " bytes");
@@ -88,10 +147,17 @@ abstract public class IOCtlResponse {
             this.freeBlocks = buffer.getLong();
         }
 
+        @Override
+        public int ioctlErrorCode() {
+            return 0;
+        }
+
+        @Override
         public int getSize(){
             return GetClassStatResp.CSIZE;
         }
 
+        @Override
         public String toString(){
             return "GetClassStatResp: all block: " + this.allBlocks + " free: " + this.freeBlocks;
         }

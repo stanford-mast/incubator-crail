@@ -8,5 +8,5 @@ import org.apache.crail.rpc.RpcResponse;
 
 public interface RpcIoctl extends RpcResponse {
     public IOCtlResponse getResponse();
-    public void setResponse(IOCtlResponse resp);
+    public void setResponse(byte opocde, IOCtlResponse resp);
 }
