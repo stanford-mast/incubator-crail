@@ -162,4 +162,49 @@ abstract public class IOCtlResponse {
             return "GetClassStatResp: all block: " + this.allBlocks + " free: " + this.freeBlocks;
         }
     }
+
+    public static class CountFilesResp extends IOCtlResponse {
+        public static int CSIZE = Long.BYTES;
+        private long fileCount;
+
+        public CountFilesResp(){
+            this.fileCount = -1;
+        }
+
+        public CountFilesResp(long count){
+            this.fileCount = count;
+        }
+
+        @Override
+        public int write(ByteBuffer buffer) throws IOException {
+            if(CountFilesResp.CSIZE > buffer.remaining()) {
+                throw new IOException("Write ByteBuffer is too small, remaining " + buffer.remaining() + " expected, " + CountFilesResp.CSIZE + " bytes");
+            }
+            buffer.putLong(this.fileCount);
+            return CountFilesResp.CSIZE;
+        }
+
+        @Override
+        public void update(ByteBuffer buffer) throws IOException {
+            if(getSize() > buffer.remaining()) {
+                throw new IOException("Read ByteBuffer is too small, remaining " + buffer.remaining() + " expected, " + getSize() + " bytes");
+            }
+            this.fileCount = buffer.getLong();
+        }
+
+        @Override
+        public int ioctlErrorCode() {
+            return 0;
+        }
+
+        @Override
+        public int getSize(){
+            return CountFilesResp.CSIZE;
+        }
+
+        @Override
+        public String toString(){
+            return "CountFilesResp: number of files are : " + this.fileCount;
+        }
+    }
 }

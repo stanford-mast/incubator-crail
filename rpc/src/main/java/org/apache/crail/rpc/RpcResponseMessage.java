@@ -706,6 +706,9 @@ public class RpcResponseMessage {
 				case IOCtlCommand.NN_SET_WMASK:
 					this.resp = new IOCtlResponse.IOCtlVoidResp();
 					break;
+				case IOCtlCommand.COUNT_FILES:
+					this.resp = new IOCtlResponse.CountFilesResp();
+					break;
 				default:
 					throw new IOException("NYI: ioctl opcode " + this.opcode);
 			}

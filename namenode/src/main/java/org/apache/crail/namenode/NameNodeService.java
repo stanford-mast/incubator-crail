@@ -20,7 +20,9 @@
 package org.apache.crail.namenode;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.net.URI;
+import java.util.Iterator;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.DelayQueue;
@@ -634,6 +636,18 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 				return ecode;
 			}
 
+			case IOCtlCommand.COUNT_FILES: {
+				IOCtlCommand.CountFilesCommand count = (IOCtlCommand.CountFilesCommand) request.getIOCtlCommand();
+				//i am just abusing an atomic count to pass long as reference
+				AtomicLong lx = new AtomicLong(0);
+				short ecode = countFiles(count, errorState, lx);
+				//for now we pack the error code into the void status too
+				LOG.info(" file count is : " + lx.get());
+				IOCtlResponse.CountFilesResp resp = new IOCtlResponse.CountFilesResp(lx.get());
+				response.setResponse(IOCtlCommand.COUNT_FILES, resp);
+				return ecode;
+			}
+
 			default: throw new NotImplementedException();
 		}
 	}
@@ -673,7 +687,58 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		LOG.info("IOCTL: installing weighted mask, current active masks " + this.weightMask.size());
 		return RpcErrors.ERR_OK;
 	}
-	
+
+	private short countFiles(IOCtlCommand.CountFilesCommand countFilesCommand, RpcNameNodeState errorState, AtomicLong lx) throws Exception {
+		// we implement it here
+		FileName dirLocation = countFilesCommand.getDirLocation();
+		AbstractNode nodeInfo = fileTree.retrieveFile(dirLocation, errorState);
+		if (errorState.getError() != RpcErrors.ERR_OK){
+			// it will only return this if the depth exceeds the certain size
+			return errorState.getError();
+		}
+		if (nodeInfo == null) {
+			return RpcErrors.ERR_DIR_NOT_FOUND;
+		}
+		if (!nodeInfo.getType().isDirectory()){
+			return RpcErrors.ERR_FILE_IS_NOT_DIR;
+		}
+		return flatFileCount(nodeInfo, lx);
+		//return recursiveFileCount(nodeInfo, lx);
+	}
+
+	private short flatFileCount(AbstractNode root, AtomicLong count) throws Exception{
+		DirectoryBlocks dr = (DirectoryBlocks) root;
+		count.addAndGet(dr.getFlatSize());
+		return RpcErrors.ERR_OK;
+	}
+
+	private short recursiveFileCount(AbstractNode root, AtomicLong count) throws Exception{
+		if(root.getType().isDataFile()){
+			count.incrementAndGet();
+			return RpcErrors.ERR_OK;
+		}
+		// we we need to count the children and issue more requests
+		if(root.getType().isDirectory()){
+			DirectoryBlocks dr = (DirectoryBlocks) root;
+			Iterator<AbstractNode> itr = dr.getChildren();
+			while(itr.hasNext()){
+				AbstractNode node = itr.next();
+				if(node.getType().isDirectory() || node.getType().isDataFile()){
+					short ecode = recursiveFileCount(node, count);
+					if(ecode != RpcErrors.ERR_OK){
+						return ecode;
+					}
+				} else {
+					// we just skip these types we cannot handle.
+					LOG.error("I cannot count of type: " + node.getType());
+				}
+			}
+			return RpcErrors.ERR_OK;
+		} else {
+			throw new Exception(" I found " + root.getType() + " in the path, only files and directories are supported");
+		}
+	}
+
 	void appendToDeleteQueue(AbstractNode fileInfo) throws Exception {
 		if (fileInfo != null) {
 			fileInfo.setDelay(CrailConstants.TOKEN_EXPIRATION);

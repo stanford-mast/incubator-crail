@@ -16,6 +16,7 @@ public abstract class IOCtlCommand {
     public static final byte DN_REMOVE = 2;
     public static final byte NN_GET_CLASS_STAT = 3;
     public static final byte NN_SET_WMASK = 4;
+    public static final byte COUNT_FILES = 5;
 
     public abstract int write(ByteBuffer buffer) throws IOException;
     public abstract void update(ByteBuffer buffer) throws IOException;
@@ -158,6 +159,37 @@ public abstract class IOCtlCommand {
         }
 
         public String toString(){ return "AttachWeigthMaskCommand";}
+    }
+
+    public static class CountFilesCommand extends IOCtlCommand {
+        // this need the hash of the directory name
+        private FileName dirLocation;
+
+        public CountFilesCommand(){
+            this.dirLocation = new FileName();
+        }
+
+        public CountFilesCommand(FileName dirLocation){
+            this.dirLocation = dirLocation;
+        }
+
+        public int write(ByteBuffer buffer) throws IOException{
+            return this.dirLocation.write(buffer);
+        }
+
+        public void update(ByteBuffer buffer) throws IOException {
+            this.dirLocation.update(buffer);
+        }
+
+        public int getSize(){
+            return FileName.CSIZE;
+        }
+
+        public FileName getDirLocation(){
+            return this.dirLocation;
+        }
+
+        public String toString(){ return "CountFiles";}
     }
 
     public static class NoOpCommand extends IOCtlCommand {

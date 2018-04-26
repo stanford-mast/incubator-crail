@@ -592,6 +592,8 @@ public class RpcRequestMessage {
 				this.opcode = IOCtlCommand.NN_GET_CLASS_STAT;
 			}  else if (ops instanceof IOCtlCommand.AttachWeigthMaskCommand) {
 				this.opcode = IOCtlCommand.NN_SET_WMASK;
+			}  else if (ops instanceof IOCtlCommand.CountFilesCommand) {
+				this.opcode = IOCtlCommand.COUNT_FILES;
 			}
 		}
 
@@ -641,6 +643,9 @@ public class RpcRequestMessage {
 					break;
 				case IOCtlCommand.NN_SET_WMASK:
 					this.cmd = new IOCtlCommand.AttachWeigthMaskCommand();
+					break;
+				case IOCtlCommand.COUNT_FILES:
+					this.cmd = new IOCtlCommand.CountFilesCommand();
 					break;
 				default:
 					throw new IOException("NYI: ioctl opcode " + this.opcode);

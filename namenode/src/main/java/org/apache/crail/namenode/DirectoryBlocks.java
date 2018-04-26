@@ -106,4 +106,12 @@ public class DirectoryBlocks extends AbstractNode {
 			child.dump();
 		}		
 	}
+
+	public Iterator<AbstractNode> getChildren() {
+		 return children.values().iterator();
+	}
+
+	public int getFlatSize(){
+		return children.values().size();
+	}
 }

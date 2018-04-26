@@ -159,7 +159,17 @@ public class CrailFsck {
 		System.err.println("Void return code was: "+ resp.ioctlErrorCode());
 		fs.closeFileSystem();
 	}
-	
+
+	public void countFiles(String dirname) throws Exception {
+		CrailConfiguration conf = new CrailConfiguration();
+		CrailConstants.updateConstants(conf);
+		CoreDataStore fs = new CoreDataStore(conf);
+		IOCtlCommand.CountFilesCommand cmd = new IOCtlCommand.CountFilesCommand (new FileName(dirname));
+		IOCtlResponse.CountFilesResp resp = (IOCtlResponse.CountFilesResp) fs.ioctlNameNode(cmd);
+		System.err.println("Number of files at " + dirname + " are > " + resp);
+		fs.closeFileSystem();
+	}
+
 	public void createDirectory(String filename, int storageClass, int locationClass) throws Exception {
 		System.out.println("createDirectory, filename " + filename + ", storageClass " + storageClass + ", locationClass " + locationClass);
 		CrailConfiguration conf = new CrailConfiguration();
@@ -242,7 +252,7 @@ public class CrailFsck {
 		int storageClass = 0;
 		int locationClass = 0;		
 		
-		Option typeOption = Option.builder("t").desc("type of experiment [getLocations|directoryDump|namenodeDump|blockStatistics|ping|createDirectory|removeDataNode|getClassStats|testWMask]").hasArg().build();
+		Option typeOption = Option.builder("t").desc("type of experiment [getLocations|directoryDump|namenodeDump|blockStatistics|ping|createDirectory|removeDataNode|getClassStats|testWMask|countFiles]").hasArg().build();
 		Option dataNodeOption = Option.builder("d").desc("datanode to be removed").hasArg().build();
 		Option fileOption = Option.builder("f").desc("filename").hasArg().build();
 		Option offsetOption = Option.builder("y").desc("offset into the file").hasArg().build();
@@ -319,7 +329,10 @@ public class CrailFsck {
 			fsck.IOCtlGetClassStats(storageClass);
 		} else if (type.equals("testWMask")){
 			fsck.testWMask(filename, maskString);
-		} else {
+		} else if (type.equals("countFiles")){
+			fsck.countFiles(filename);
+		}
+		else {
 			HelpFormatter formatter = new HelpFormatter();
 			formatter.printHelp("crail fsck", options);
 			System.exit(-1);	
