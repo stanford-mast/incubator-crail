@@ -41,7 +41,7 @@ public class PocketBlockStore {
     long getFreeBlocks(int storageClass) {
         if(storageClass < this.storageClasses.length){
             // within the index range
-            return this.storageClasses[storageClass].getTotalBlockCount();
+            return this.storageClasses[storageClass].getFreeBlockCount();
         }
         // otherwise, treat it as an error
         return 0 - RpcErrors.ERR_NO_SUCH_STORAGE_CLASS;
