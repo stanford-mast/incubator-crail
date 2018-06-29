@@ -28,8 +28,8 @@ public class BlockInfo {
 	protected long lba;
 	protected long addr;
 	protected int length;
-	protected int lkey;	
-	
+	protected int lkey;
+
 	public BlockInfo(){
 		this.dnInfo = new DataNodeInfo();
 		this.lba = 0;
@@ -52,7 +52,6 @@ public class BlockInfo {
 		this.addr = blockInfo.getAddr();
 		this.length = blockInfo.getLength();
 		this.lkey = blockInfo.getLkey();
-		
 	}
 
 	public int write(ByteBuffer buffer){
@@ -70,6 +69,7 @@ public class BlockInfo {
 		this.addr = buffer.getLong();
 		this.length = buffer.getInt();
 		this.lkey = buffer.getInt();
+		// we do not serialize deleted
 	}
 
 	public long getLba() {

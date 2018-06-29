@@ -47,6 +47,8 @@ public class DirectoryBlocks extends AbstractNode {
 		if (child.isEnumerable()) {
 			child.setDirOffset(dirOffsetCounter.getAndAdd(CrailConstants.DIRECTORY_RECORD));
 		}
+		// set the weight map
+		child.setWeightMapIndex(getWeightMapIndex());
 		return old;
 	}	
 	
@@ -70,7 +72,7 @@ public class DirectoryBlocks extends AbstractNode {
 	}
 
 	@Override
-	public void freeBlocks(BlockStore blockStore) throws Exception {
+	public void freeBlocks(PocketBlockStore blockStore) throws Exception {
 		Iterator<NameNodeBlockInfo> iter = blocks.values().iterator();
 		while (iter.hasNext()){
 			NameNodeBlockInfo blockInfo = iter.next();
@@ -102,5 +104,13 @@ public class DirectoryBlocks extends AbstractNode {
 		for (AbstractNode child : children.values()){
 			child.dump();
 		}		
+	}
+
+	public Iterator<AbstractNode> getChildren() {
+		 return children.values().iterator();
+	}
+
+	public int getFlatSize(){
+		return children.values().size();
 	}
 }

@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.crail.CrailNodeType;
+import org.apache.crail.RpcIoctl;
 import org.apache.crail.metadata.BlockInfo;
 import org.apache.crail.metadata.DataNodeInfo;
 import org.apache.crail.metadata.FileInfo;
@@ -35,6 +36,7 @@ public class RpcDispatcher implements RpcConnection {
 	private RpcConnection[] connections;
 	private int setBlockIndex;
 	private int getDataNodeIndex;
+	private int dumpNameNodeIndex;
 
 	public RpcDispatcher(ConcurrentLinkedQueue<RpcConnection> connectionList) {
 		connections = new RpcConnection[connectionList.size()];
@@ -43,6 +45,7 @@ public class RpcDispatcher implements RpcConnection {
 		}
 		this.setBlockIndex = 0;
 		this.getDataNodeIndex = 0;
+		this.dumpNameNodeIndex = 0;
 	}
 
 	@Override
@@ -126,12 +129,18 @@ public class RpcDispatcher implements RpcConnection {
 
 	@Override
 	public RpcFuture<RpcVoid> dumpNameNode() throws Exception {
-		return connections[0].dumpNameNode();
+		dumpNameNodeIndex = (dumpNameNodeIndex + 1) % connections.length;
+		return connections[dumpNameNodeIndex].dumpNameNode();
 	}
 
 	@Override
 	public RpcFuture<RpcPing> pingNameNode() throws Exception {
 		return connections[0].pingNameNode();
+	}
+
+	@Override
+	public RpcFuture<RpcIoctl> ioctlNameNode(IOCtlCommand cmd) throws IOException {
+		throw new IOException();
 	}
 
 	@Override

@@ -35,7 +35,9 @@ public class DataNodeBlocks extends DataNodeInfo {
 	
 	private ConcurrentHashMap<Long, BlockInfo> regions;
 	private LinkedBlockingQueue<NameNodeBlockInfo> freeBlocks;
+	private long maxBlockCount;
 	private long token;
+	private boolean scheduleForRemoval;
 	
 	public static DataNodeBlocks fromDataNodeInfo(DataNodeInfo dnInfo) throws UnknownHostException{
 		DataNodeBlocks dnInfoNn = new DataNodeBlocks(dnInfo.getStorageType(), dnInfo.getStorageClass(), dnInfo.getLocationClass(), dnInfo.getIpAddress(), dnInfo.getPort());
@@ -46,27 +48,52 @@ public class DataNodeBlocks extends DataNodeInfo {
 		super(storageType, getStorageClass, locationClass, ipAddress, port);
 		this.regions = new ConcurrentHashMap<Long, BlockInfo>();
 		this.freeBlocks = new LinkedBlockingQueue<NameNodeBlockInfo>();
+		this.scheduleForRemoval = false;
+		this.maxBlockCount = 0;
+	}
+
+	private void updateMaxCount(){
+		// we want to see what is the maximum block count we have seen with this
+		// node. Eventually that is the capacity we need to get back to.
+		// XXX: this logic does not work if data nodes can de-register capacities
+		if(freeBlocks.size() > this.maxBlockCount)
+			this.maxBlockCount = freeBlocks.size();
 	}
 	
 	public void addFreeBlock(NameNodeBlockInfo nnBlock) {
+		//TODO: checking here the returning value tells us if this is a new or old block.
 		regions.put(nnBlock.getRegion().getLba(), nnBlock.getRegion());
 		freeBlocks.add(nnBlock);
+		updateMaxCount();
 	}
 
 	public NameNodeBlockInfo getFreeBlock() throws InterruptedException {
-		NameNodeBlockInfo block = this.freeBlocks.poll();
-		return block;
+		if(isOnline()) {
+			// if we are online (meaning that: alive and not scheduled for removal => only then allocate a new block
+			return this.freeBlocks.poll();
+		}
+		// otherwise return null
+		return null;
+	}
+
+	public void scheduleForRemoval() {
+		this.scheduleForRemoval = true;
+	}
+
+	public boolean safeForRemoval() {
+		return  this.maxBlockCount == this.freeBlocks.size();
 	}
 	
-	public int getBlockCount() {
+	public int getFreeBlockCount() {
 		return freeBlocks.size();
 	}
 
+	public long getMaxBlockCount() {
+		return this.maxBlockCount;
+	}
+
 	public boolean regionExists(BlockInfo region) {
-		if (regions.containsKey(region.getLba())){
-			return true;
-		} 
-		return false;
+		return regions.containsKey(region.getLba());
 	}
 
 	public short updateRegion(BlockInfo region) {
@@ -80,10 +107,14 @@ public class DataNodeBlocks extends DataNodeInfo {
 	}
 
 	public void touch() {
-		this.token = System.nanoTime() + TimeUnit.SECONDS.toNanos(CrailConstants.STORAGE_KEEPALIVE*8);		
+		this.token = System.nanoTime() + TimeUnit.SECONDS.toNanos(CrailConstants.STORAGE_KEEPALIVE * 8);
 	}
-	
+
+	public boolean isScheduleForRemoval(){
+		return this.scheduleForRemoval;
+	}
+
 	public boolean isOnline(){
-		return System.nanoTime() <= token;
+		return (System.nanoTime() <= token) && !this.scheduleForRemoval;
 	}	
 }

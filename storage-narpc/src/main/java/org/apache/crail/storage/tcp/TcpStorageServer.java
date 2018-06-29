@@ -41,7 +41,7 @@ import com.ibm.narpc.NaRPCService;
 
 public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<TcpStorageRequest, TcpStorageResponse> {
 	private static final Logger LOG = CrailUtils.getLogger();
-	
+
 	private NaRPCServerGroup<TcpStorageRequest, TcpStorageResponse> serverGroup;
 	private NaRPCServerEndpoint<TcpStorageRequest, TcpStorageResponse> serverEndpoint;
 	private InetSocketAddress address;
@@ -50,12 +50,12 @@ public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<T
 	private long keys;
 	private ConcurrentHashMap<Integer, ByteBuffer> dataBuffers;
 	private String dataDirPath;
-	
+
 	@Override
 	public void init(CrailConfiguration conf, String[] args) throws Exception {
 		TcpStorageConstants.init(conf, args);
-		
-		this.serverGroup = new NaRPCServerGroup<TcpStorageRequest, TcpStorageResponse>(this, TcpStorageConstants.STORAGE_TCP_QUEUE_DEPTH, (int) CrailConstants.BLOCK_SIZE*2, false, TcpStorageConstants.STORAGE_TCP_CORES);
+
+		this.serverGroup = new NaRPCServerGroup<TcpStorageRequest, TcpStorageResponse>(this, TcpStorageConstants.STORAGE_TCP_QUEUE_DEPTH, (int) CrailConstants.BLOCK_SIZE*2, TcpStorageConstants.STORAGE_TCP_NODELAY, TcpStorageConstants.STORAGE_TCP_CORES);
 		this.serverEndpoint = serverGroup.createServerEndpoint();
 		this.address = StorageUtils.getDataNodeAddress(TcpStorageConstants.STORAGE_TCP_INTERFACE, TcpStorageConstants.STORAGE_TCP_PORT);
 		serverEndpoint.bind(address);
@@ -83,7 +83,7 @@ public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<T
 			ByteBuffer buffer = dataChannel.map(MapMode.READ_WRITE, 0, TcpStorageConstants.STORAGE_TCP_ALLOCATION_SIZE);
 			dataBuffers.put(fileId, buffer);
 			dataFile.close();
-			dataChannel.close();			
+			dataChannel.close();
 			long address = CrailUtils.getAddress(buffer);
 			resource = StorageResource.createResource(address, buffer.capacity(), fileId);
 		}
@@ -101,17 +101,30 @@ public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<T
 	}
 
 	@Override
+	public void prepareToShutDown(){
+		this.alive = false;
+		// do more clean up, if required
+		try {
+			serverEndpoint.close();
+			serverGroup.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Override
 	public void run() {
 		try {
 			LOG.info("running TCP storage server, address " + address);
 			this.alive = true;
-			while(true){
+			while(this.alive){
 				NaRPCServerChannel endpoint = serverEndpoint.accept();
 				LOG.info("new connection " + endpoint.address());
 			}
 		} catch(Exception e){
 			e.printStackTrace();
 		}
+		LOG.info("Shutting down the datanode at address " + address);
 	}
 
 	@Override
@@ -143,5 +156,56 @@ public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<T
 			LOG.info("processing unknown request");
 			return new TcpStorageResponse(TcpStorageProtocol.RET_RPC_UNKNOWN);
 		}
+	}
+
+	@Override
+	public void addEndpoint(NaRPCServerChannel newConnection) {
+		// nothing to do here for now
+	}
+
+	@Override
+	public void removeEndpoint(NaRPCServerChannel closedConnection) {
+		// nothing to do here for now
+	}
+
+	private void clean(){
+		File dataDir = new File(dataDirPath);
+		if (!dataDir.exists()){
+			dataDir.mkdirs();
+		}
+		for (File child : dataDir.listFiles()) {
+			child.delete();
+		}
+	}
+
+	public static InetSocketAddress getDataNodeAddress() throws IOException {
+		String ifname = TcpStorageConstants.STORAGE_TCP_INTERFACE;
+		int port = TcpStorageConstants.STORAGE_TCP_PORT;
+
+		NetworkInterface netif = NetworkInterface.getByName(ifname);
+		if (netif == null){
+			return null;
+		}
+		List<InterfaceAddress> addresses = netif.getInterfaceAddresses();
+		InetAddress addr = null;
+		for (InterfaceAddress address: addresses){
+			// only ipv4 address have broadcast address, hence this is a crude way to filter
+			// in ipv4 addresses. But loopback also does not have a broadcast address.
+			// hence we make an OR filter
+			boolean isIpv4Address = (address.getBroadcast() != null);
+			InetAddress _addr = address.getAddress();
+			boolean isLoopbackAddress = _addr.isLoopbackAddress();
+			if (isIpv4Address || isLoopbackAddress){
+				//TODO: what to do with interface with multiple IP addresses?
+				addr = _addr;
+			}
+		}
+		InetSocketAddress inetAddr = new InetSocketAddress(addr, port);
+		return inetAddr;
+	}
+
+	public static String getDatanodeDirectory(InetSocketAddress inetAddress){
+		String address = inetAddress.getAddress().toString();
+		return TcpStorageConstants.STORAGE_TCP_DATA_PATH + address + "-"  + inetAddress.getPort();
 	}
 }

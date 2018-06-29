@@ -86,6 +86,11 @@ public class CrailConstants {
 	public static final String LOCATION_MAP_KEY = "crail.locationmap";
 	public static String LOCATION_MAP = "";
 
+	// for pocket, we have block cache disabled until we figure out
+	// what and how we want to purge it when a datanode goes down.
+	public static final String CLIENT_BLOCKCACHE_ENABLE_KEY = "crail.client.blockcache.enable";
+	public static boolean CLIENT_BLOCKCACHE_ENABLE = false;
+	
 	//namenode interface
 	public static final String NAMENODE_ADDRESS_KEY = "crail.namenode.address";
 	public static String NAMENODE_ADDRESS = "crail://localhost:9060";
@@ -104,6 +109,9 @@ public class CrailConstants {
 
 	public static final String NAMENODE_LOG_KEY = "crail.namenode.log";
 	public static String NAMENODE_LOG = "";
+
+	public static final String NAMENODE_REPLAY_REGION_KEY = "crail.namenode.replayregion";
+	public static boolean NAMENODE_REPLAY_REGION = false;
 
 	//storage interface
 	public static final String STORAGE_TYPES_KEY = "crail.storage.types";
@@ -178,6 +186,10 @@ public class CrailConstants {
 			LOCATION_MAP = conf.get(LOCATION_MAP_KEY);
 		}
 
+		if (conf.get(CLIENT_BLOCKCACHE_ENABLE_KEY) != null) {
+			CLIENT_BLOCKCACHE_ENABLE = conf.getBoolean(CLIENT_BLOCKCACHE_ENABLE_KEY,false);
+		}
+		
 		//namenode interface
 		if (conf.get(NAMENODE_ADDRESS_KEY) != null) {
 			NAMENODE_ADDRESS = conf.get(NAMENODE_ADDRESS_KEY);
@@ -194,7 +206,11 @@ public class CrailConstants {
 		if (conf.get(NAMENODE_LOG_KEY) != null) {
 			NAMENODE_LOG = conf.get(NAMENODE_LOG_KEY);
 		}
-
+		
+		if (conf.get(CrailConstants.NAMENODE_REPLAY_REGION_KEY) != null) {
+			NAMENODE_REPLAY_REGION = conf.getBoolean(CrailConstants.NAMENODE_REPLAY_REGION_KEY, false);
+		}
+		
 		//storage interface
 		if (conf.get(STORAGE_TYPES_KEY) != null) {
 			STORAGE_TYPES = conf.get(STORAGE_TYPES_KEY);
@@ -238,10 +254,12 @@ public class CrailConstants {
 		LOG.info(NAMENODE_FILEBLOCKS_KEY + " " + NAMENODE_FILEBLOCKS);
 		LOG.info(NAMENODE_RPC_TYPE_KEY + " " + NAMENODE_RPC_TYPE);
 		LOG.info(NAMENODE_LOG_KEY + " " + NAMENODE_LOG);
+		LOG.info(NAMENODE_REPLAY_REGION_KEY + " " + NAMENODE_REPLAY_REGION);
 		LOG.info(STORAGE_TYPES_KEY + " " + STORAGE_TYPES);
 		LOG.info(STORAGE_CLASSES_KEY + " " + STORAGE_CLASSES);
 		LOG.info(STORAGE_ROOTCLASS_KEY + " " + STORAGE_ROOTCLASS);
 		LOG.info(STORAGE_KEEPALIVE_KEY + " " + STORAGE_KEEPALIVE);
+		LOG.info(CLIENT_BLOCKCACHE_ENABLE_KEY + " "+ CLIENT_BLOCKCACHE_ENABLE);
 	}
 
 	public static void verify() throws IOException {

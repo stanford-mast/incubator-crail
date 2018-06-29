@@ -18,7 +18,6 @@
 
 package org.apache.crail.rpc;
 
-import org.apache.crail.rpc.RpcErrors;
 import org.apache.crail.utils.CrailUtils;
 import org.slf4j.Logger;
 
@@ -40,6 +39,7 @@ public class RpcProtocol extends RpcErrors {
 	public static final short CMD_DUMP_NAMENODE = 10;
 	public static final short CMD_PING_NAMENODE = 11;
 	public static final short CMD_GET_DATANODE = 12;
+	public static final short CMD_IOCTL_NAMENODE = 13;
 	
 	//request types
 	public static final short REQ_CREATE_FILE = 1;	
@@ -53,6 +53,7 @@ public class RpcProtocol extends RpcErrors {
 	public static final short REQ_DUMP_NAMENODE = 10;
 	public static final short REQ_PING_NAMENODE = 11;
 	public static final short REQ_GET_DATANODE = 12;
+	public static final short REQ_IOCTL_NAMENODE = 13;
 	
 	//response types
 	public static final short RES_VOID = 1;
@@ -64,8 +65,8 @@ public class RpcProtocol extends RpcErrors {
 	public static final short RES_GET_LOCATION = 7;
 	public static final short RES_PING_NAMENODE = 9;
 	public static final short RES_GET_DATANODE = 10;
-	
-	
+	public static final short RES_IOCTL_NAMENODE = 11;
+
 	static {
 		requestTypes[0] = 0;
 		requestTypes[CMD_CREATE_FILE] = REQ_CREATE_FILE;
@@ -79,6 +80,7 @@ public class RpcProtocol extends RpcErrors {
 		requestTypes[CMD_DUMP_NAMENODE] = REQ_DUMP_NAMENODE;
 		requestTypes[CMD_PING_NAMENODE] = REQ_PING_NAMENODE;	
 		requestTypes[CMD_GET_DATANODE] = REQ_GET_DATANODE;
+		requestTypes[CMD_IOCTL_NAMENODE] = REQ_IOCTL_NAMENODE;
 		
 		responseTypes[0] = 0;
 		responseTypes[CMD_CREATE_FILE] = RES_CREATE_FILE;
@@ -92,6 +94,7 @@ public class RpcProtocol extends RpcErrors {
 		responseTypes[CMD_DUMP_NAMENODE] = RES_VOID;
 		responseTypes[CMD_PING_NAMENODE] = RES_PING_NAMENODE;	
 		responseTypes[CMD_GET_DATANODE] = RES_GET_DATANODE;
+		responseTypes[CMD_IOCTL_NAMENODE] = RES_IOCTL_NAMENODE;
 	}
 	
 

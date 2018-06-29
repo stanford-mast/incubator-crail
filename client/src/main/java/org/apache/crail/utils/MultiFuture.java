@@ -68,32 +68,15 @@ public abstract class MultiFuture<R,T> implements Future<T> {
 	}	
 	
 	public synchronized T get() throws InterruptedException, ExecutionException {
-		if (this.exception != null){
-			throw new ExecutionException(exception);
-		}		
-		
-		if (status.get() == RPC_PENDING){
-			try {
-				for (Future<R> dataFuture = pendingDataOps.poll(); dataFuture != null; dataFuture = pendingDataOps.poll()){
-					R result = dataFuture.get();
-					this.aggregate(result);
-				}
-				completeOperation();
-			} catch (Exception e) {
-				status.set(RPC_ERROR);
-				this.exception = e;
-			}
+		TimeoutException e = null;
+		try {
+			return get(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+		} catch (TimeoutException ex) {
+			ex.printStackTrace();
+			e = ex;
 		}
-		
-		if (status.get() == RPC_DONE){
-			return this.getAggregate();
-		} else if (status.get() == RPC_PENDING){
-			throw new InterruptedException("RPC timeout");
-		} else if (exception != null) {
-			throw new ExecutionException(exception);
-		} else {
-			throw new InterruptedException("RPC error");
-		}
+		// convert timeout exception to the ExecutionExecution
+		throw new ExecutionException(e);
 	}
 
 	@Override
@@ -105,7 +88,7 @@ public abstract class MultiFuture<R,T> implements Future<T> {
 		if (status.get() == RPC_PENDING){
 			try {
 				for (Future<R> dataFuture = pendingDataOps.poll(); dataFuture != null; dataFuture = pendingDataOps.poll()){
-					R result = dataFuture.get(CrailConstants.DATA_TIMEOUT, TimeUnit.MILLISECONDS);
+					R result = dataFuture.get(timeout, unit);
 					this.aggregate(result);
 				}
 				completeOperation();
@@ -114,7 +97,11 @@ public abstract class MultiFuture<R,T> implements Future<T> {
 				this.exception = e;
 			}
 		}
-		
+		//TODO: this is another point that needs a cleanup but I do't have the connection information here.
+		// clean-up is only required for exception cases, not the RPC_DONE or RPC_PENDING case.
+		// So what will happen is that, the next time we are trying to post something on this connection,
+		// it will be cleaned-up then (in the synchronous context in the CoreStream). I don't think so
+		// it is worth cleaning it here by tracking which datanode has failed.
 		if (status.get() == RPC_DONE){
 			return this.getAggregate();
 		} else if (status.get() == RPC_PENDING){

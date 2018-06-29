@@ -19,26 +19,26 @@
 package org.apache.crail.namenode;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.net.URI;
+import java.util.Iterator;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.DelayQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.crail.CrailNodeType;
+import org.apache.crail.IOCtlResponse;
+import org.apache.crail.WeightMask;
 import org.apache.crail.conf.CrailConstants;
 import org.apache.crail.metadata.BlockInfo;
 import org.apache.crail.metadata.DataNodeInfo;
 import org.apache.crail.metadata.FileInfo;
 import org.apache.crail.metadata.FileName;
-import org.apache.crail.rpc.RpcErrors;
-import org.apache.crail.rpc.RpcNameNodeService;
-import org.apache.crail.rpc.RpcNameNodeState;
-import org.apache.crail.rpc.RpcProtocol;
-import org.apache.crail.rpc.RpcRequestMessage;
-import org.apache.crail.rpc.RpcResponseMessage;
+import org.apache.crail.rpc.*;
 import org.apache.crail.utils.CrailUtils;
 import org.slf4j.Logger;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 public class NameNodeService implements RpcNameNodeService, Sequencer {
 	private static final Logger LOG = CrailUtils.getLogger();
@@ -47,10 +47,14 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 	private long serviceId;
 	private long serviceSize;
 	private AtomicLong sequenceId;
-	private BlockStore blockStore;
+	private PocketBlockStore blockStore;
 	private DelayQueue<AbstractNode> deleteQueue;
 	private FileStore fileTree;
-	private ConcurrentHashMap<Long, AbstractNode> fileTable;	
+	private ConcurrentHashMap<Long, AbstractNode> fileTable;
+	// TODO: how do we remove it?
+	// when we are removing a node whose top entry (i.e. "/") does not match the one we are trying to remove
+	private ConcurrentHashMap<Long, WeightMask> weightMask;
+	private AtomicLong weightIndex;
 	private GCServer gcServer;
 	
 	public NameNodeService() throws IOException {
@@ -60,11 +64,14 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		this.serviceId = Long.parseLong(tokenizer.nextToken().substring(3));
 		this.serviceSize = Long.parseLong(tokenizer.nextToken().substring(5));
 		this.sequenceId = new AtomicLong(serviceId);
-		this.blockStore = new BlockStore();
+		this.blockStore = new PocketBlockStore();
 		this.deleteQueue = new DelayQueue<AbstractNode>();
 		this.fileTree = new FileStore(this);
 		this.fileTable = new ConcurrentHashMap<Long, AbstractNode>();
 		this.gcServer = new GCServer(this, deleteQueue);
+
+		this.weightMask = new ConcurrentHashMap<>();
+		this.weightIndex = new AtomicLong();
 		
 		AbstractNode root = fileTree.getRoot();
 		fileTable.put(root.getFd(), root);
@@ -86,7 +93,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		//get params
 		FileName fileHash = request.getFileName();
 		CrailNodeType type = request.getFileType();
-		boolean writeable = type.isDirectory() ? false : true; 
+		boolean writeable = type.isDirectory() ? false : true;
 		int storageClass = request.getStorageClass();
 		int locationClass = request.getLocationClass();
 		boolean enumerable = request.isEnumerable();
@@ -126,7 +133,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		}
 		fileTable.put(fileInfo.getFd(), fileInfo);
 		
-		NameNodeBlockInfo fileBlock = blockStore.getBlock(fileInfo.getStorageClass(), fileInfo.getLocationClass());
+		NameNodeBlockInfo fileBlock = blockStore.getBlock(fileInfo.getStorageClass(), fileInfo.getLocationClass(),_lookupMask(fileInfo));
 		if (fileBlock == null){
 			return RpcErrors.ERR_NO_FREE_BLOCKS;
 		}			
@@ -139,7 +146,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 			int index = CrailUtils.computeIndex(fileInfo.getDirOffset());
 			parentBlock = parentInfo.getBlock(index);
 			if (parentBlock == null){
-				parentBlock = blockStore.getBlock(parentInfo.getStorageClass(), parentInfo.getLocationClass());
+				parentBlock = blockStore.getBlock(parentInfo.getStorageClass(), parentInfo.getLocationClass(), _lookupMask(parentInfo));
 				if (parentBlock == null){
 					return RpcErrors.ERR_NO_FREE_BLOCKS;
 				}			
@@ -276,7 +283,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		
 		response.setParentInfo(parentInfo);
 		response.setFileInfo(fileInfo);
-		
+
 		fileInfo = parentInfo.removeChild(fileInfo.getComponent());
 		if (fileInfo == null){
 			return RpcErrors.ERR_GET_FILE_FAILED;
@@ -366,7 +373,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		index = CrailUtils.computeIndex(srcFile.getDirOffset());
 		NameNodeBlockInfo dstBlock = dstParent.getBlock(index);
 		if (dstBlock == null){
-			dstBlock = blockStore.getBlock(dstParent.getStorageClass(), dstParent.getLocationClass());
+			dstBlock = blockStore.getBlock(dstParent.getStorageClass(), dstParent.getLocationClass(), _lookupMask(dstParent));
 			if (dstBlock == null){
 				return RpcErrors.ERR_NO_FREE_BLOCKS;
 			}			
@@ -402,20 +409,30 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		//check protocol
 		if (!RpcProtocol.verifyProtocol(RpcProtocol.CMD_GET_DATANODE, request, response)){
 			return RpcErrors.ERR_PROTOCOL_MISMATCH;
-		}			
-		
+		}
 		//get params
 		DataNodeInfo dnInfo = request.getInfo();
-		
 		//rpc
 		DataNodeBlocks dnInfoNn = blockStore.getDataNode(dnInfo);
 		if (dnInfoNn == null){
+			System.err.println(" Datanode no longer registered ");
 			return RpcErrors.ERR_DATANODE_NOT_REGISTERED;
 		}
-		
+		// here is our control hack
+		if(dnInfoNn.isScheduleForRemoval()){
+			// we now check if we have a possibility to eject it now
+			if(dnInfoNn.safeForRemoval()){
+				// now we eject it from everywhere
+				blockStore.removeDataNode(dnInfo);
+				response.setServiceId(serviceId);
+				// we are abusing the free block count
+				response.setFreeBlockCount(RpcErrors.ERR_DN_IOCTL_STOP);
+				return RpcErrors.ERR_OK;
+			} // otherwise we have to wait until all block are not free
+		}
 		dnInfoNn.touch();
 		response.setServiceId(serviceId);
-		response.setFreeBlockCount(dnInfoNn.getBlockCount());
+		response.setFreeBlockCount(dnInfoNn.getFreeBlockCount());
 		
 		return RpcErrors.ERR_OK;
 	}	
@@ -429,11 +446,15 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		
 		//get params
 		BlockInfo region = new BlockInfo();
+		// atr: the call from the datanode to here to set block is more like SET_REGION, we should rename it.
+		// TODO: make a new type SET_REGION
 		region.setBlockInfo(request.getBlockInfo());
+
+		System.err.println(" ### " + region.getDnInfo().toString());
 		
 		short error = RpcErrors.ERR_OK;
-		if (blockStore.regionExists(region)){
-			error = blockStore.updateRegion(region);
+		if (CrailConstants.NAMENODE_REPLAY_REGION){
+			throw new Exception("NYI: update region on the pocket block store.");
 		} else {
 			//rpc
 			int realBlocks = (int) (((long) region.getLength()) / CrailConstants.BLOCK_SIZE) ;
@@ -483,7 +504,7 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		
 		NameNodeBlockInfo block = fileInfo.getBlock(index);
 		if (block == null && fileInfo.getToken() == token){
-			block = blockStore.getBlock(fileInfo.getStorageClass(), fileInfo.getLocationClass());
+			block = blockStore.getBlock(fileInfo.getStorageClass(), fileInfo.getLocationClass(), _lookupMask(fileInfo));
 			if (block == null){
 				return RpcErrors.ERR_NO_FREE_BLOCKS;
 			}
@@ -570,21 +591,168 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 		
 		return RpcErrors.ERR_OK;
 	}
-	
-	
+
+	@Override
+	public short ioctl(RpcRequestMessage.IoctlNameNodeReq request,
+					   RpcResponseMessage.IOCtlNameNodeRes response, RpcNameNodeState errorState) throws Exception {
+		if (!RpcProtocol.verifyProtocol(RpcProtocol.CMD_IOCTL_NAMENODE, request, response)){
+			return RpcErrors.ERR_PROTOCOL_MISMATCH;
+		}
+		byte opcode = request.getOpcode();
+		switch (opcode) {
+			case IOCtlCommand.NOP:
+				return RpcErrors.ERR_OK;
+
+			case IOCtlCommand.DN_REMOVE : {
+				IOCtlCommand.RemoveDataNode dn = (IOCtlCommand.RemoveDataNode) request.getIOCtlCommand();
+				IOCtlResponse.IOCtlDataNodeRemoveResp resp = new IOCtlResponse.IOCtlDataNodeRemoveResp();
+				response.setResponse(IOCtlCommand.DN_REMOVE, resp);
+				return prepareDataNodeForRemoval(dn);
+			}
+
+			case IOCtlCommand.NN_GET_CLASS_STAT: {
+				IOCtlCommand.GetClassStatCommand cmd = (IOCtlCommand.GetClassStatCommand) request.getIOCtlCommand();
+				long totalBlocks = this.blockStore.getTotalBlocks(cmd.getStorageClass());
+				if (totalBlocks < 0) {
+					//error, that means that the storage class is not valid
+					// this is already negative with the RPC error code, make it positive so that it indexes into
+					// the error message array
+					return (short) (0 - totalBlocks);
+				}
+				long freeBlocks = this.blockStore.getFreeBlocks(cmd.getStorageClass());
+				assert (freeBlocks >= 0);
+				IOCtlResponse.GetClassStatResp stat = new IOCtlResponse.GetClassStatResp(totalBlocks, freeBlocks);
+				response.setResponse(IOCtlCommand.NN_GET_CLASS_STAT, stat);
+				return RpcErrors.ERR_OK;
+			}
+
+			case IOCtlCommand.NN_SET_WMASK: {
+				IOCtlCommand.AttachWeigthMaskCommand wm = (IOCtlCommand.AttachWeigthMaskCommand) request.getIOCtlCommand();
+				short ecode = installWeightMask(wm, errorState);
+				//for now we pack the error code into the void status too
+				IOCtlResponse.IOCtlVoidResp resp = new IOCtlResponse.IOCtlVoidResp(ecode);
+				response.setResponse(IOCtlCommand.NN_SET_WMASK, resp);
+				return ecode;
+			}
+
+			case IOCtlCommand.COUNT_FILES: {
+				IOCtlCommand.CountFilesCommand count = (IOCtlCommand.CountFilesCommand) request.getIOCtlCommand();
+				//i am just abusing an atomic count to pass long as reference
+				AtomicLong lx = new AtomicLong(0);
+				short ecode = countFiles(count, errorState, lx);
+				//for now we pack the error code into the void status too
+				LOG.info(" file count is : " + lx.get());
+				IOCtlResponse.CountFilesResp resp = new IOCtlResponse.CountFilesResp(lx.get());
+				response.setResponse(IOCtlCommand.COUNT_FILES, resp);
+				return ecode;
+			}
+
+			default: throw new NotImplementedException();
+		}
+	}
+
+
 	//--------------- helper functions
-	
+
+	private short prepareDataNodeForRemoval(IOCtlCommand.RemoveDataNode dn) throws Exception {
+		LOG.info("IOCTL: removing data node: " + dn);
+		DataNodeInfo dnInfo = new DataNodeInfo(0, 0, 0, dn.getIPAddress().getAddress(), dn.port());
+		return blockStore.prepareDataNodeForRemoval(dnInfo);
+	}
+
+	private short installWeightMask(IOCtlCommand.AttachWeigthMaskCommand wm, RpcNameNodeState errorState) throws Exception {
+		// we implement it here
+		FileName dirLocation = wm.getDirLocation();
+		AbstractNode nodeInfo = fileTree.retrieveFile(dirLocation, errorState);
+		if (errorState.getError() != RpcErrors.ERR_OK){
+			// it will only return this if the depth exceeds the certain size
+			return errorState.getError();
+		}
+		if (nodeInfo == null) {
+			return RpcErrors.ERR_DIR_NOT_FOUND;
+		}
+		if (!nodeInfo.getType().isContainer()){
+			return RpcErrors.ERR_FILE_IS_NOT_DIR;
+		}
+		// otherwise we are ready to install the map
+		WeightMask mask = wm.getWeightMask();
+		long oldIndex = nodeInfo.getWeightMapIndex();
+		if(oldIndex == -1){
+			// then we install a new entry
+			long idx = this.weightIndex.getAndIncrement();
+			nodeInfo.setWeightMapIndex(idx);
+		}
+		this.weightMask.put(nodeInfo.getWeightMapIndex(), mask);
+		LOG.info("IOCTL: installing weighted mask, current active masks " + this.weightMask.size());
+		return RpcErrors.ERR_OK;
+	}
+
+	private short countFiles(IOCtlCommand.CountFilesCommand countFilesCommand, RpcNameNodeState errorState, AtomicLong lx) throws Exception {
+		// we implement it here
+		FileName dirLocation = countFilesCommand.getDirLocation();
+		AbstractNode nodeInfo = fileTree.retrieveFile(dirLocation, errorState);
+		if (errorState.getError() != RpcErrors.ERR_OK){
+			// it will only return this if the depth exceeds the certain size
+			return errorState.getError();
+		}
+		if (nodeInfo == null) {
+			return RpcErrors.ERR_DIR_NOT_FOUND;
+		}
+		if (!nodeInfo.getType().isDirectory()){
+			return RpcErrors.ERR_FILE_IS_NOT_DIR;
+		}
+		return flatFileCount(nodeInfo, lx);
+		//return recursiveFileCount(nodeInfo, lx);
+	}
+
+	private short flatFileCount(AbstractNode root, AtomicLong count) throws Exception{
+		DirectoryBlocks dr = (DirectoryBlocks) root;
+		count.addAndGet(dr.getFlatSize());
+		return RpcErrors.ERR_OK;
+	}
+
+	private short recursiveFileCount(AbstractNode root, AtomicLong count) throws Exception{
+		if(root.getType().isDataFile()){
+			count.incrementAndGet();
+			return RpcErrors.ERR_OK;
+		}
+		// we we need to count the children and issue more requests
+		if(root.getType().isDirectory()){
+			DirectoryBlocks dr = (DirectoryBlocks) root;
+			Iterator<AbstractNode> itr = dr.getChildren();
+			while(itr.hasNext()){
+				AbstractNode node = itr.next();
+				if(node.getType().isDirectory() || node.getType().isDataFile()){
+					short ecode = recursiveFileCount(node, count);
+					if(ecode != RpcErrors.ERR_OK){
+						return ecode;
+					}
+				} else {
+					// we just skip these types we cannot handle.
+					LOG.error("I cannot count of type: " + node.getType());
+				}
+			}
+			return RpcErrors.ERR_OK;
+		} else {
+			throw new Exception(" I found " + root.getType() + " in the path, only files and directories are supported");
+		}
+	}
+
 	void appendToDeleteQueue(AbstractNode fileInfo) throws Exception {
 		if (fileInfo != null) {
 			fileInfo.setDelay(CrailConstants.TOKEN_EXPIRATION);
 			deleteQueue.add(fileInfo);			
 		}
-	}	
+	}
 	
 	void freeFile(AbstractNode fileInfo) throws Exception {
 		if (fileInfo != null) {
 			fileTable.remove(fileInfo.getFd());
 			fileInfo.freeBlocks(blockStore);
+			if(fileInfo.getWeightMapIndex() != -1){
+				// remove the map
+				this.weightMask.remove(fileInfo.getWeightMapIndex());
+			}
 		}
 	}
 
@@ -593,5 +761,11 @@ public class NameNodeService implements RpcNameNodeService, Sequencer {
 			AbstractNode file = fileTable.get(key);
 			System.out.println(file.toString());
 		}		
+	}
+
+	private WeightMask _lookupMask(AbstractNode node){
+		long index = node.getWeightMapIndex();
+		// we look it up otherwise null
+		return this.weightMask.getOrDefault(index, null);
 	}
 }

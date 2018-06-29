@@ -18,9 +18,7 @@
 
 package org.apache.crail.namenode;
 
-import org.apache.crail.rpc.RpcNameNodeService;
-import org.apache.crail.rpc.RpcNameNodeState;
-import org.apache.crail.rpc.RpcProtocol;
+import org.apache.crail.rpc.*;
 import org.apache.crail.rpc.RpcRequestMessage.CreateFileReq;
 import org.apache.crail.rpc.RpcRequestMessage.DumpNameNodeReq;
 import org.apache.crail.rpc.RpcRequestMessage.GetBlockReq;
@@ -41,6 +39,7 @@ import org.apache.crail.rpc.RpcResponseMessage.GetLocationRes;
 import org.apache.crail.rpc.RpcResponseMessage.PingNameNodeRes;
 import org.apache.crail.rpc.RpcResponseMessage.RenameRes;
 import org.apache.crail.rpc.RpcResponseMessage.VoidRes;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 public class LogDispatcher implements RpcNameNodeService {
 	private RpcNameNodeService service;
@@ -135,5 +134,11 @@ public class LogDispatcher implements RpcNameNodeService {
 			RpcNameNodeState errorState) throws Exception {
 		return service.ping(request, response, errorState);
 	}
-	
+
+	@Override
+	public short ioctl(RpcRequestMessage.IoctlNameNodeReq request,
+					   RpcResponseMessage.IOCtlNameNodeRes response, RpcNameNodeState errorState) throws Exception {
+		throw new NotImplementedException();
+	}
+
 }

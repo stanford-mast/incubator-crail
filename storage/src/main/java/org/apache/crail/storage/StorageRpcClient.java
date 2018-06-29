@@ -30,6 +30,7 @@ import org.apache.crail.metadata.DataNodeInfo;
 import org.apache.crail.metadata.DataNodeStatistics;
 import org.apache.crail.rpc.RpcConnection;
 import org.apache.crail.rpc.RpcErrors;
+import org.apache.crail.rpc.RpcGetDataNode;
 import org.apache.crail.rpc.RpcVoid;
 import org.apache.crail.utils.CrailUtils;
 import org.slf4j.Logger;
@@ -41,7 +42,8 @@ public class StorageRpcClient {
 	private int storageType;
 	private CrailStorageClass storageClass;
 	private CrailLocationClass locationClass;
-	private RpcConnection rpcConnection;	
+	private RpcConnection rpcConnection;
+	DataNodeInfo dnInfo;
 
 	public StorageRpcClient(int storageType, CrailStorageClass storageClass, InetSocketAddress serverAddress, RpcConnection rpcConnection) throws Exception {
 		this.storageType = storageType;
@@ -49,6 +51,11 @@ public class StorageRpcClient {
 		this.serverAddress = serverAddress;
 		this.locationClass = CrailUtils.getLocationClass();
 		this.rpcConnection = rpcConnection;
+		this.dnInfo = new DataNodeInfo(storageType,
+				storageClass.value(),
+				locationClass.value(),
+				this.serverAddress.getAddress().getAddress(),
+				this.serverAddress.getPort());
 	}
 	
 	public void setBlock(long lba, long addr, int length, int key) throws Exception {
@@ -63,8 +70,10 @@ public class StorageRpcClient {
 	}
 	
 	public DataNodeStatistics getDataNode() throws Exception{
-		InetSocketAddress inetAddress = serverAddress;
-		DataNodeInfo dnInfo = new DataNodeInfo(storageType, storageClass.value(), locationClass.value(), inetAddress.getAddress().getAddress(), inetAddress.getPort());
-		return this.rpcConnection.getDataNode(dnInfo).get(CrailConstants.RPC_TIMEOUT, TimeUnit.MILLISECONDS).getStatistics();
+		RpcGetDataNode fx = this.rpcConnection.getDataNode(dnInfo).get(CrailConstants.RPC_TIMEOUT, TimeUnit.MILLISECONDS);
+		if(fx.getError() != RpcErrors.ERR_OK){
+			throw new Exception("Error returned in the RPC type: " + RpcErrors.messages[fx.getError()]);
+		}
+		return fx.getStatistics();
 	}	
 }

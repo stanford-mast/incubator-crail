@@ -111,7 +111,17 @@ public class TcpStorageResponse implements NaRPCMessage {
 		private ByteBuffer data;
 		
 		public ReadResponse(ByteBuffer data){
-			this.data = data;
+			// the issue is that, if you have buffer/slice size > block size then the same
+			// buffer is passed to multiple requests (which issue RPC for each block). These
+			// requests fill the part of the same buffer. But buffer sharing is not thread-safe.
+			// Hence, each request _has_ to duplicate the buffer. Buffer duplication only duplicates
+			// the indexes not the underlying buffer. Then it would be safe for each request
+			// to manipulate their own position and capacity indexes.
+			this.data = data.duplicate();
+			// this needs to be fixed and not moved around. If all works out properly we should
+			// never overrun this buffer.
+			this.data.limit(data.limit());
+			this.data.position(data.position());
 		}
 
 		public int write(ByteBuffer buffer) throws IOException {
@@ -122,9 +132,13 @@ public class TcpStorageResponse implements NaRPCMessage {
 		}
 
 		public void update(ByteBuffer buffer) throws IOException {
+			// get how many bytes of the payload it has
 			int remaining = buffer.getInt();
-			data.clear().limit(remaining);
+			// adjust the buffer but _do_not_ clean it, because we need to remember
+			// the original position and capacity. If we have done our maths right
+			// then we should never overflow this buffer.
 			buffer.limit(buffer.position() + remaining);
+			// and copy that content out.
 			data.put(buffer);
 		}
 		

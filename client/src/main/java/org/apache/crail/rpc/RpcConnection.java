@@ -21,6 +21,7 @@ package org.apache.crail.rpc;
 import java.io.IOException;
 
 import org.apache.crail.CrailNodeType;
+import org.apache.crail.RpcIoctl;
 import org.apache.crail.metadata.BlockInfo;
 import org.apache.crail.metadata.DataNodeInfo;
 import org.apache.crail.metadata.FileInfo;
@@ -59,7 +60,10 @@ public interface RpcConnection {
 
 	public abstract RpcFuture<RpcPing> pingNameNode()
 			throws Exception;
-	
+
+	public abstract RpcFuture<RpcIoctl> ioctlNameNode(IOCtlCommand cmd)
+			throws IOException;
+
 	public abstract void close() throws Exception;
 	
 	@SuppressWarnings("unchecked")

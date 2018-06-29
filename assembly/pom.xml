@@ -57,17 +57,7 @@
       <artifactId>crail-storage</artifactId>
       <version>1.0</version>
     </dependency>
-    <dependency>
-      <groupId>org.apache.crail</groupId>
-      <artifactId>crail-storage-rdma</artifactId>
-      <version>1.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.crail</groupId>
-      <artifactId>crail-storage-nvmf</artifactId>
-      <version>1.0</version>
-    </dependency>
-    <dependency>
+   <dependency>
       <groupId>org.apache.crail</groupId>
       <artifactId>crail-storage-nvmf</artifactId>
       <version>1.0</version>
@@ -83,12 +73,7 @@
       <artifactId>crail-hdfs</artifactId>
       <version>1.0</version>
     </dependency>
-    <dependency>
-      <groupId>org.apache.crail</groupId>
-      <artifactId>crail-rpc-darpc</artifactId>
-      <version>1.0</version>
-    </dependency>
-    <dependency>
+   <dependency>
       <groupId>org.apache.crail</groupId>
       <artifactId>crail-rpc-narpc</artifactId>
       <version>1.0</version>

@@ -32,16 +32,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.crail.CrailBlockLocation;
-import org.apache.crail.CrailBuffer;
-import org.apache.crail.CrailStore;
-import org.apache.crail.CrailLocationClass;
-import org.apache.crail.CrailNode;
-import org.apache.crail.CrailNodeType;
-import org.apache.crail.CrailResult;
-import org.apache.crail.CrailStatistics;
-import org.apache.crail.CrailStorageClass;
-import org.apache.crail.Upcoming;
+import org.apache.crail.*;
 import org.apache.crail.conf.CrailConfiguration;
 import org.apache.crail.conf.CrailConstants;
 import org.apache.crail.memory.BufferCache;
@@ -49,17 +40,7 @@ import org.apache.crail.metadata.BlockInfo;
 import org.apache.crail.metadata.DataNodeInfo;
 import org.apache.crail.metadata.FileInfo;
 import org.apache.crail.metadata.FileName;
-import org.apache.crail.rpc.RpcClient;
-import org.apache.crail.rpc.RpcConnection;
-import org.apache.crail.rpc.RpcCreateFile;
-import org.apache.crail.rpc.RpcDeleteFile;
-import org.apache.crail.rpc.RpcDispatcher;
-import org.apache.crail.rpc.RpcErrors;
-import org.apache.crail.rpc.RpcFuture;
-import org.apache.crail.rpc.RpcGetFile;
-import org.apache.crail.rpc.RpcGetLocation;
-import org.apache.crail.rpc.RpcPing;
-import org.apache.crail.rpc.RpcRenameFile;
+import org.apache.crail.rpc.*;
 import org.apache.crail.storage.StorageClient;
 import org.apache.crail.utils.BlockCache;
 import org.apache.crail.utils.BufferCheckpoint;
@@ -476,6 +457,15 @@ public class CoreDataStore extends CrailStore {
 			LOG.info("Ping: " + RpcErrors.messages[pingRes.getError()]);
 			throw new IOException(RpcErrors.messages[pingRes.getError()]);
 		}
+	}
+
+	public IOCtlResponse ioctlNameNode(IOCtlCommand cmd) throws Exception {
+		RpcIoctl resp = rpcConnection.ioctlNameNode(cmd).get(CrailConstants.RPC_TIMEOUT,
+				TimeUnit.MILLISECONDS);
+		if (resp.getError() != RpcErrors.ERR_OK) {
+			throw new IOException("IOCtl: " + RpcErrors.messages[resp.getError()]);
+		}
+		return resp.getResponse();
 	}
 
 	public CrailBuffer allocateBuffer() throws IOException {

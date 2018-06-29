@@ -58,20 +58,10 @@
         <artifactId>log4j</artifactId>
         <version>1.2.17</version>
       </dependency>
-      <dependency>
-        <groupId>com.ibm.disni</groupId>
-        <artifactId>disni</artifactId>
-        <version>1.6</version>
-      </dependency>
-      <dependency>
-        <groupId>com.ibm.darpc</groupId>
-        <artifactId>darpc</artifactId>
-        <version>1.6</version>
-      </dependency>
-      <dependency>
+     <dependency>
         <groupId>com.ibm.narpc</groupId>
         <artifactId>narpc</artifactId>
-        <version>1.1</version>
+        <version>1.2</version>
       </dependency>
       <dependency>
         <groupId>org.apache.hadoop</groupId>
@@ -121,11 +111,8 @@
     <module>client</module>
     <module>namenode</module>
     <module>storage</module>
-    <module>storage-rdma</module>
-    <module>storage-nvmf</module>
     <module>storage-narpc</module>
     <module>rpc</module>
-    <module>rpc-darpc</module>
     <module>rpc-narpc</module>
     <module>hdfs</module>
     <module>assembly</module>

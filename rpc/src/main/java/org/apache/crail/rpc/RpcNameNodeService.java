@@ -65,6 +65,10 @@ public interface RpcNameNodeService {
 	public abstract short ping(RpcRequestMessage.PingNameNodeReq request,
 			RpcResponseMessage.PingNameNodeRes response, RpcNameNodeState errorState)
 			throws Exception;
+
+	public abstract short ioctl(RpcRequestMessage.IoctlNameNodeReq request,
+							   RpcResponseMessage.IOCtlNameNodeRes response, RpcNameNodeState errorState)
+			throws Exception;
 	
 	@SuppressWarnings("unchecked")
 	public static RpcNameNodeService createInstance(String name) throws Exception {

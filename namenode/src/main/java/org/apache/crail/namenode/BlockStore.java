@@ -44,14 +44,23 @@ public class BlockStore {
 		}		
 	}
 
+	public short removeDN(DataNodeInfo dn) {
+		int storageClass = dn.getStorageClass();
+		return storageClasses[storageClass].removeDatanode(dn);
+	}
+
 	public short addBlock(NameNodeBlockInfo blockInfo) throws UnknownHostException {
 		int storageClass = blockInfo.getDnInfo().getStorageClass();
 		return storageClasses[storageClass].addBlock(blockInfo);
 	}
 
 	public boolean regionExists(BlockInfo region) {
-		int storageClass = region.getDnInfo().getStorageClass();
-		return storageClasses[storageClass].regionExists(region);
+		if(CrailConstants.NAMENODE_REPLAY_REGION) {
+			int storageClass = region.getDnInfo().getStorageClass();
+			return storageClasses[storageClass].regionExists(region);
+		} else {
+			return false;
+		}
 	}
 
 	public short updateRegion(BlockInfo region) {
@@ -59,7 +68,7 @@ public class BlockStore {
 		return storageClasses[storageClass].updateRegion(region);
 	}
 
-	public NameNodeBlockInfo getBlock(int storageClass, int locationAffinity) throws InterruptedException {
+	private NameNodeBlockInfo getBlock(int storageClass, int locationAffinity) throws InterruptedException {
 		NameNodeBlockInfo block = null;
 		if (storageClass > 0){
 			if (storageClass < storageClasses.length){
@@ -141,6 +150,18 @@ class StorageClass {
 		return RpcErrors.ERR_OK;
 	}
 
+	short removeDatanode(DataNodeInfo dn) {
+		long dnAddress = dn.key();
+		DataNodeBlocks old = membership.remove(dnAddress);
+		if(old == null) {
+			System.err.println("DataNode: " + dn.toString() + " not found");
+			return RpcErrors.ERR_DATANODE_NOT_REGISTERED;
+		} else {
+			System.err.println("DataNode: " + dn.toString() + " scheduled for removal from the list");
+			return RpcErrors.ERR_OK;
+		}
+	}
+
 	NameNodeBlockInfo getBlock(int affinity) throws InterruptedException {
 		NameNodeBlockInfo block = null;
 		if (affinity == 0) {
@@ -163,13 +184,10 @@ class StorageClass {
 		DataNodeBlocks current = membership.putIfAbsent(dataNode.key(), dataNode);
 		if (current != null) {
 			return RpcErrors.ERR_DATANODE_NOT_REGISTERED;
-		} 
-		
+		}
 		// current == null, datanode not in set, adding it now
 		_addDataNode(dataNode);
-		
 		return RpcErrors.ERR_OK;
-
 	}
 	
 	//---------------

@@ -37,7 +37,9 @@ public class TableBlocks extends DirectoryBlocks {
 		AbstractNode oldNode = children.put(child.getComponent(), child);
 		if (child.isEnumerable()) {
 			child.setDirOffset(dirOffsetCounter.getAndAdd(CrailConstants.DIRECTORY_RECORD));
-		}		
+		}
+		// set the weight map
+		child.setWeightMapIndex(getWeightMapIndex());
 		return oldNode;
 	}
 }

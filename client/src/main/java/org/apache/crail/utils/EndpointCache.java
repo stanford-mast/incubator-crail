@@ -70,6 +70,11 @@ public class EndpointCache implements CrailStatistics.StatisticsProvider {
 		return endpoint;
 //		return storageCaches.get(dataNodeInfo.getStorageType()).getDataEndpoint(dataNodeInfo);
 	}
+
+	public void removeDataEndpoint(DataNodeInfo dataNodeInfo) {
+		StorageEndpointCache cache = storageCaches.get(dataNodeInfo.getStorageType());
+		cache.removeDataEndpoint(dataNodeInfo);
+	}
 	
 	public int size() {
 		int size = 0;
@@ -140,6 +145,14 @@ public class EndpointCache implements CrailStatistics.StatisticsProvider {
 				}
 			}
 			return endpoint;
+		}
+
+		public void removeDataEndpoint(DataNodeInfo dataNodeInfo) {
+			// This is the minimum/simplest trick I can think of - just to remove the aborted connection from
+			// the connection cache, but _leave_ the lock variable.
+			// I don't have a sensible solution, which w/o synchronizing getDataEndpoint and removeDataEndpoint
+			// functions, atomically removes the lock and the aborted datanode from two concurrent hash maps!
+			this.cache.remove(dataNodeInfo.key());
 		}
 
 		public int size() {

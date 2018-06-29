@@ -236,6 +236,7 @@ public abstract class CoreStream {
 			return subFuture;
 		} catch(IOException e){
 			LOG.info("ERROR: failed data operation");
+			removeFailedOps(opDesc, block);
 			e.printStackTrace();
 			throw e;
 		}
@@ -255,5 +256,14 @@ public abstract class CoreStream {
 				}
 			}
 		}
+	}
+
+	private void removeFailedOps(CoreSubOperation opDesc, BlockInfo block){
+		//opDesc might be needed to get the file offset that failed to remove that
+		// from the buffer cache. But for now, we don't use it.
+		LOG.error("Failed operation: " + opDesc + " to " + block);
+
+		//block has the datanode information
+		this.endpointCache.removeDataEndpoint(block.getDnInfo());
 	}
 }

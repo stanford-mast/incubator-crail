@@ -1153,6 +1153,20 @@ public class CrailBenchmark {
 			benchmark.open();
 			benchmark.readInt(filename, loop);
 			benchmark.close();
+		}  else if (type.equalsIgnoreCase("readIntLoop")) {
+			benchmark.open();
+			for (int i = 0; i < experiments; i++) {
+				try {
+					benchmark.readInt(filename, loop);
+					System.out.println(" Sleeping for 1 seconds | iteration " + i);
+					Thread.sleep(1000);
+				} catch (Exception e) {
+					i-=1; // repeat this step,
+					System.err.println("There were error, repeating the execution in 3 seconds | iteration " + i);
+					Thread.sleep(3000);
+				}
+			}
+			benchmark.close();
 		} else if (type.equalsIgnoreCase("seekInt")) {
 			benchmark.open();
 			benchmark.seekInt(filename, loop);

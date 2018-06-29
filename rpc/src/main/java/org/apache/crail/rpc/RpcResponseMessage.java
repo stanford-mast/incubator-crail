@@ -22,25 +22,18 @@ import java.io.IOException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 
+import org.apache.crail.IOCtlResponse;
+import org.apache.crail.RpcIoctl;
 import org.apache.crail.metadata.BlockInfo;
 import org.apache.crail.metadata.DataNodeStatistics;
 import org.apache.crail.metadata.FileInfo;
-import org.apache.crail.rpc.RpcCreateFile;
-import org.apache.crail.rpc.RpcDeleteFile;
-import org.apache.crail.rpc.RpcGetBlock;
-import org.apache.crail.rpc.RpcGetDataNode;
-import org.apache.crail.rpc.RpcGetFile;
-import org.apache.crail.rpc.RpcGetLocation;
-import org.apache.crail.rpc.RpcPing;
-import org.apache.crail.rpc.RpcRenameFile;
-import org.apache.crail.rpc.RpcVoid;
 
 public class RpcResponseMessage {
 	public static class VoidRes implements RpcProtocol.NameNodeRpcMessage, RpcVoid {
 		private short error;
 		
 		public VoidRes() {
-			this.error = 0;
+			this.error = -1;
 		}
 		
 		public int size() {
@@ -559,15 +552,16 @@ public class RpcResponseMessage {
 	
 	public static class GetDataNodeRes implements RpcProtocol.NameNodeRpcMessage, RpcGetDataNode {
 		public static int CSIZE = DataNodeStatistics.CSIZE;
-		
+		private short error;
 		private DataNodeStatistics statistics;
 
 		public GetDataNodeRes() {
 			this.statistics = new DataNodeStatistics();
+			this.error = -1;
 		}
 		
 		public void setError(short error) {
-			
+			this.error = error;
 		}
 
 		public int size() {
@@ -600,7 +594,7 @@ public class RpcResponseMessage {
 		}
 		
 		public short getError(){
-			return 0;
+			return this.error;
 		}
 
 		public void setServiceId(long serviceId) {
@@ -642,6 +636,92 @@ public class RpcResponseMessage {
 		
 		public void setData(int data){
 			this.data = data;
+		}
+
+		public short getError(){
+			return error;
+		}
+
+		public void setError(short error) {
+			this.error = error;
+		}
+	}
+
+	public static class IOCtlNameNodeRes implements RpcProtocol.NameNodeRpcMessage, RpcIoctl {
+		private IOCtlResponse resp;
+		private byte opcode;
+		private short error;
+
+		public IOCtlNameNodeRes() {
+			this.resp = new IOCtlResponse.IOCtlDataNodeRemoveResp();
+			this.opcode = IOCtlCommand.NOP;
+			this.error = -1;
+		}
+
+		public int size() {
+			// we write one byte + command
+			return Byte.BYTES + this.resp.getSize();
+		}
+
+		public short getType(){
+			return RpcProtocol.RES_IOCTL_NAMENODE;
+		}
+
+		public byte getOpcode() {
+			return this.opcode;
+		}
+
+		public int write(ByteBuffer buffer) throws IOException {
+			int size = size();
+			if(buffer.remaining() < size){
+				throw new IOException("Buffer.remaining " + buffer.remaining() + " is less than required " + size + " bytes");
+			}
+			buffer.put(opcode);
+			this.resp.write(buffer);
+			return size;
+		}
+
+		private void checkCmdSize(int remaining) throws IOException {
+			if(this.resp.getSize() > remaining)
+				throw new IOException("Buffer.remaining " + remaining + " is less than required " + this.resp.getSize() + " bytes");
+		}
+
+		public void update(ByteBuffer buffer) throws IOException {
+			if(buffer.remaining() < Byte.BYTES){
+				throw new IOException("Cannot even read a byte of opcode from the passed ByteBuffer");
+			}
+			this.opcode = buffer.get();
+			/* which type ? */
+			switch (this.opcode) {
+				case IOCtlCommand.NOP:
+					this.resp = new IOCtlResponse.IOCtlNopResp();
+					break;
+				case IOCtlCommand.DN_REMOVE:
+					this.resp = new IOCtlResponse.IOCtlDataNodeRemoveResp();
+					break;
+				case IOCtlCommand.NN_GET_CLASS_STAT:
+					this.resp = new IOCtlResponse.GetClassStatResp();
+					break;
+				case IOCtlCommand.NN_SET_WMASK:
+					this.resp = new IOCtlResponse.IOCtlVoidResp();
+					break;
+				case IOCtlCommand.COUNT_FILES:
+					this.resp = new IOCtlResponse.CountFilesResp();
+					break;
+				default:
+					throw new IOException("NYI: ioctl opcode " + this.opcode);
+			}
+			checkCmdSize(buffer.remaining());
+			this.resp.update(buffer);
+		}
+
+		public IOCtlResponse getResponse() {
+			return this.resp;
+		}
+
+		public void setResponse(byte opcode, IOCtlResponse resp){
+			this.resp = resp;
+			this.opcode = opcode;
 		}
 
 		public short getError(){
