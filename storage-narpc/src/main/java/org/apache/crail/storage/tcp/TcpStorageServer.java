@@ -87,14 +87,18 @@ public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<T
 			RandomAccessFile dataFile = new RandomAccessFile(dataFilePath, "rw");
 			FileChannel dataChannel = dataFile.getChannel();
 			ByteBuffer buffer = dataChannel.map(MapMode.READ_WRITE, 0, TcpStorageConstants.STORAGE_TCP_ALLOCATION_SIZE);
-			/* sum up values to avoid buffer.get() being removed by JIT */
-			int sum = 0;
-			for (int p = 0; p < buffer.limit(); p += 4096) {
-				/* force backing of each page by reading a single byte from it */
-				buffer.position(p);
-				sum += buffer.get();
+
+			if (TcpStorageConstants.STORAGE_TCP_POPULATE_MMAP) {
+				/* sum up values to avoid buffer.get() being removed by JIT */
+				int sum = 0;
+				for (int p = 0; p < buffer.limit(); p += 4096) {
+					/* force backing of each page by reading a single byte from it */
+					buffer.position(p);
+					sum += buffer.get();
+				}
+				LOG.info("Force mmap backings (" + sum + ")");
 			}
-			LOG.info("Force mmap backings (" + sum + ")");
+
 			dataBuffers.put(fileId, buffer);
 			dataFile.close();
 			dataChannel.close();

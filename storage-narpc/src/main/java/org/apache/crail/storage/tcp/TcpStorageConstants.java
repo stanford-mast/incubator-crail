@@ -48,7 +48,7 @@ public class TcpStorageConstants {
 
 	public static final String STORAGE_TCP_DATA_PATH_KEY = "crail.storage.tcp.datapath";
 	public static String STORAGE_TCP_DATA_PATH = "/dev/hugepages/data";
-	
+
 	public static final String STORAGE_TCP_QUEUE_DEPTH_KEY = "crail.storage.tcp.queuedepth";
 	public static int STORAGE_TCP_QUEUE_DEPTH = 16;
 
@@ -57,6 +57,9 @@ public class TcpStorageConstants {
 
 	public static final String STORAGE_TCP_NODELAY_KEY = "crail.storage.tcp.nodelay";
 	public static boolean STORAGE_TCP_NODELAY = false;
+
+	public static final String STORAGE_TCP_POPULATE_MMAP_KEY = "crail.storage.tcp.populatemmap";
+	public static boolean STORAGE_TCP_POPULATE_MMAP = false;
 
     public static void init(CrailConfiguration conf, String[] args) throws Exception {
         if (args != null) {
@@ -115,6 +118,9 @@ public class TcpStorageConstants {
 		if (conf.get(STORAGE_TCP_NODELAY_KEY) != null) {
 			STORAGE_TCP_NODELAY = Boolean.parseBoolean(conf.get(STORAGE_TCP_NODELAY_KEY));
 		}
+		if (conf.get(STORAGE_TCP_POPULATE_MMAP_KEY) != null) {
+			STORAGE_TCP_POPULATE_MMAP = Boolean.parseBoolean(conf.get(STORAGE_TCP_POPULATE_MMAP_KEY));
+		}
 	}
 
 	public static void printConf(Logger logger) {
@@ -126,6 +132,7 @@ public class TcpStorageConstants {
 		logger.info(STORAGE_TCP_QUEUE_DEPTH_KEY + " " + STORAGE_TCP_QUEUE_DEPTH);
 		logger.info(STORAGE_TCP_CORES_KEY + " " + STORAGE_TCP_CORES);
 		logger.info(STORAGE_TCP_NODELAY_KEY + " " + STORAGE_TCP_NODELAY);
+		logger.info(STORAGE_TCP_POPULATE_MMAP_KEY + " " + STORAGE_TCP_POPULATE_MMAP);
 	}
 
 }
