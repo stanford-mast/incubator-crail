@@ -24,6 +24,13 @@ import java.util.HashMap;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import java.util.ArrayList;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -44,6 +51,10 @@ import org.apache.crail.utils.CrailUtils;
 import org.slf4j.Logger;
 
 public interface StorageServer extends Configurable, Runnable {
+	public static ArrayList<Integer> logReqWr = new ArrayList<Integer>(); // req/sec
+	public static ArrayList<Integer> logReqRd = new ArrayList<Integer>(); // req/sec
+	public static ArrayList<Long> logReqTime = new ArrayList<Long>(); // timestamp for logging req rate
+
 	public abstract StorageResource allocateResource() throws Exception;
 	public abstract boolean isAlive();
 	public abstract void prepareToShutDown();
@@ -113,6 +124,28 @@ public interface StorageServer extends Configurable, Runnable {
 		}
 		StorageServer server = storageTier.launchServer();
 		
+		
+		Runtime.getRuntime().addShutdownHook(new Thread()
+		{
+			@Override
+			public void run()
+			{
+				System.out.println("Saving CPU logs...");
+				try{
+					File file = new File("dram_log_req.txt");
+					FileOutputStream fo = new FileOutputStream(file);
+					PrintWriter pw = new PrintWriter(fo);
+					for(int i=0; i<server.logReqTime.size(); i++){
+						pw.println(server.logReqTime.get(i)+"\t"+server.logReqWr.get(i)+"\t"+ server.logReqRd.get(i));
+					}
+					pw.close();
+					fo.close();
+				} catch (IOException e){
+				}
+			}
+		});
+
+
 		String extraParams[] = null;
 		splitIndex++;
 		if (args.length > splitIndex){

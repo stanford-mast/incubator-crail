@@ -31,6 +31,7 @@ import java.nio.channels.FileChannel.MapMode;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
 
 import org.apache.crail.conf.CrailConfiguration;
 import org.apache.crail.conf.CrailConstants;
@@ -57,9 +58,20 @@ public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<T
 	private ConcurrentHashMap<Integer, ByteBuffer> dataBuffers;
 	private String dataDirPath;
 
+        TcpStorageServer datanode;
+	private int numReqWr;
+	private int numReqRd;
+        private long startTime;
+        private long currTime;
+
 	@Override
 	public void init(CrailConfiguration conf, String[] args) throws Exception {
 		TcpStorageConstants.init(conf, args);
+
+                TcpStorageServer datanode = new TcpStorageServer();
+		this.numReqWr = 0;
+		this.numReqRd = 0;
+                this.startTime = System.currentTimeMillis();
 
 		this.serverGroup = new NaRPCServerGroup<TcpStorageRequest, TcpStorageResponse>(this, TcpStorageConstants.STORAGE_TCP_QUEUE_DEPTH, (int) CrailConstants.BLOCK_SIZE*2, TcpStorageConstants.STORAGE_TCP_NODELAY, TcpStorageConstants.STORAGE_TCP_CORES);
 		this.serverEndpoint = serverGroup.createServerEndpoint();
@@ -148,6 +160,18 @@ public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<T
 			buffer.clear().position((int) offset);
 			buffer.put(writeRequest.getBuffer());
 			TcpStorageResponse.WriteResponse writeResponse = new TcpStorageResponse.WriteResponse(writeRequest.length());
+
+			numReqWr++;
+                        currTime = System.currentTimeMillis();
+                        if (currTime-startTime>=1000){
+                                datanode.logReqRd.add(numReqRd);
+                                datanode.logReqWr.add(numReqWr);
+                                datanode.logReqTime.add(currTime/1000);
+                                numReqRd = 0;
+                                numReqWr = 0;
+                                startTime = currTime;
+                        }	
+
 			return new TcpStorageResponse(writeResponse);
 		} else if (request.type() == TcpStorageProtocol.REQ_READ){
 			TcpStorageRequest.ReadRequest readRequest = request.getReadRequest();
@@ -157,6 +181,18 @@ public class TcpStorageServer implements Runnable, StorageServer, NaRPCService<T
 			long limit = offset + readRequest.length();
 			buffer.clear().position((int) offset).limit((int) limit);
 			TcpStorageResponse.ReadResponse readResponse = new TcpStorageResponse.ReadResponse(buffer);
+			
+			numReqRd++;
+                        currTime = System.currentTimeMillis();
+                        if (currTime-startTime>=1000){
+                                datanode.logReqRd.add(numReqRd);
+                                datanode.logReqWr.add(numReqWr);
+				datanode.logReqTime.add(currTime/1000);
+                                numReqRd = 0;
+                                numReqWr = 0;
+				startTime = currTime;
+                        }	
+
 			return new TcpStorageResponse(readResponse);
 		} else {
 			LOG.info("processing unknown request");
