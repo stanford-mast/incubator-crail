@@ -82,6 +82,11 @@
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-log4j12</artifactId>
         <version>1.7.12</version>
+			</dependency>
+      <dependency>
+        <groupId>com.ibm.reflex</groupId>
+        <artifactId>reflex-client</artifactId>
+        <version>1.0</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -111,9 +116,11 @@
     <module>client</module>
     <module>namenode</module>
     <module>storage</module>
-    <module>storage-narpc</module>
     <module>rpc</module>
     <module>rpc-narpc</module>
+    <module>storage-narpc</module>
+    <module>reflex-client</module>
+    <module>storage-reflex</module>
     <module>hdfs</module>
     <module>assembly</module>
   </modules>
